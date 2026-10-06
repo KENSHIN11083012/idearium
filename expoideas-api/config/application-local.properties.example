@@ -1,0 +1,33 @@
+# Configuración de desarrollo. Copia este archivo a application-local.properties
+# en esta misma carpeta (ignorado por git) y rellena los valores. Spring Boot lee
+# config/ solo, sin empaquetarlo en el jar, al arrancar desde expoideas-api/:
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
+spring.datasource.url=jdbc:mysql://localhost:3306/expoideas
+spring.datasource.username=root
+spring.datasource.password=CAMBIAME
+
+# openssl rand -base64 32
+expoideas.jwt.secret=CAMBIAME
+
+# El frontend de desarrollo (Vite) corre en otro origen.
+expoideas.cors.allowed-origins=http://localhost:5173,http://127.0.0.1:5173
+
+# Si el 8080 está ocupado en tu equipo. Ajusta también VITE_API_URL en expoideas-app/.env.
+# server.port=8081
+
+# Carpeta de los archivos subidos (por defecto uploads/ junto a la API).
+# expoideas.files.directory=uploads
+
+# Correos en desarrollo: Mailpit los atrapa y los muestra en http://localhost:8025.
+#   docker compose --profile dev up -d mailpit
+# Sin estas dos líneas no se envía nada y la API lo dice en el log.
+spring.mail.host=localhost
+spring.mail.port=1025
+# URL pública de la app, para los enlaces de los correos.
+expoideas.app-url=http://localhost:5173/expoideas
+
+# SQL que ejecuta Hibernate, formateado. Solo las sentencias: los valores de los
+# parámetros (correos, etc.) no se imprimen.
+logging.level.org.hibernate.SQL=DEBUG
+spring.jpa.properties.hibernate.format_sql=true

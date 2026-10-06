@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+coverage/
+.env
+.env.*
+*.log
+
+# No hacen falta para el build: menos capas que invalidar cuando cambian.
+# nginx.conf se queda: el Dockerfile lo copia por nombre en la etapa final.
+Dockerfile
+README.md
+src/**/*.test.js
+src/**/*.test.jsx

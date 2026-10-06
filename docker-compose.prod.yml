@@ -1,0 +1,25 @@
+# Idearium con las imágenes que publica la integración continua, en vez de
+# compilarlas en el servidor. Se usa encima de docker-compose.yml:
+#
+#   # en el .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+#   IDEARIUM_VERSION=<etiqueta>      # el commit publicado, p. ej. 211162e
+#
+#   docker compose pull && docker compose up -d
+#
+# Actualizar es cambiar IDEARIUM_VERSION y repetir esos dos comandos; volver
+# atrás, poner la etiqueta anterior. Guía completa: docs/despliegue.md
+#
+# Las imágenes son privadas: antes hay que iniciar sesión en el registro
+# (docker login ghcr.io) con un token que pueda leer paquetes.
+# Necesita Docker Compose 2.24 o posterior (por «!reset»).
+
+services:
+  api:
+    image: ${IDEARIUM_REGISTRY:-ghcr.io/kenshin11083012}/expoideas-api:${IDEARIUM_VERSION:?Define IDEARIUM_VERSION en .env (la etiqueta de la versión publicada)}
+    # Sin compilar: lo que corre es exactamente lo que pasó las pruebas.
+    build: !reset null
+
+  app:
+    image: ${IDEARIUM_REGISTRY:-ghcr.io/kenshin11083012}/expoideas-app:${IDEARIUM_VERSION:?Define IDEARIUM_VERSION en .env (la etiqueta de la versión publicada)}
+    build: !reset null

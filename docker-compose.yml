@@ -1,0 +1,122 @@
+# Expoideas con Docker Compose: MySQL, API y app (Nginx).
+#
+#   cp .env.example .env     # y rellenar los valores
+#   docker compose up -d --build
+#
+# Solo la app publica un puerto; MySQL y la API quedan en la red interna.
+# Guía completa: docs/despliegue.md
+
+name: expoideas
+
+# Los tres servicios comparten el mismo límite de logs: json-file con rotación,
+# para que lo que dice el perfil prod (server.compression, etc.) no se vuelva
+# mentira por un disco lleno de logs sin rotar.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      # La API pone todas las fechas con la hora de Colombia. Esto es para lo que no
+      # pasa por ella: los logs y cualquier CURRENT_TIMESTAMP ejecutado a mano.
+      TZ: America/Bogota
+      MYSQL_DATABASE: expoideas
+      MYSQL_USER: ${DB_USERNAME:-expoideas}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    # Límite de memoria: un servicio que se desboca no se lleva por delante a los otros
+    # ni al servidor. Se ajusta en el .env según la máquina que dé TI.
+    mem_limit: ${MYSQL_MEMORY:-1g}
+    # Al parar, MySQL necesita tiempo para cerrar bien sus archivos: con los 10 s por
+    # defecto Docker lo mataría a medias y el siguiente arranque tendría que recuperarse.
+    stop_grace_period: 1m
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: ./expoideas-api
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      mysql:
+        condition: service_healthy
+    mem_limit: ${API_MEMORY:-768m}
+    # La API termina las peticiones en curso y los correos que estaba enviando antes
+    # de apagarse (ver application.properties); hay que darle tiempo para hacerlo.
+    stop_grace_period: 1m
+    environment:
+      TZ: America/Bogota
+      DB_URL: jdbc:mysql://mysql:3306/expoideas
+      DB_USERNAME: ${DB_USERNAME:-expoideas}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env (openssl rand -base64 32)}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-4h}
+      # Con menos espacio libre que este en el disco de los archivos, la salud pasa a DOWN.
+      DISK_MIN_FREE: ${DISK_MIN_FREE:-1GB}
+      # El primer administrador: solo cuenta mientras no haya ninguno (docs/despliegue.md).
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Fallos seguidos de inicio de sesión que bloquean una cuenta, y por cuánto tiempo.
+      LOGIN_MAX_FAILED_ATTEMPTS: ${LOGIN_MAX_FAILED_ATTEMPTS:-5}
+      LOGIN_LOCK_DURATION: ${LOGIN_LOCK_DURATION:-5m}
+      # La app llama a la API por el mismo origen: no hace falta abrir CORS.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Correo: servidor SMTP de TI. Sin MAIL_HOST no se envía nada.
+      SPRING_MAIL_HOST: ${MAIL_HOST:-}
+      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${MAIL_AUTH:-true}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@unisimon.edu.co}
+      # Un envío que falla se reintenta; si ninguno sale, queda en el rastro de auditoría.
+      MAIL_ATTEMPTS: ${MAIL_ATTEMPTS:-3}
+      MAIL_RETRY_DELAY: ${MAIL_RETRY_DELAY:-5s}
+      APP_URL: ${APP_URL:-}
+    volumes:
+      # FILES_DIR=/data/files ya viene fijado en el Dockerfile de la API.
+      - files:/data/files
+
+  app:
+    build: ./expoideas-app
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: ${APP_MEMORY:-128m}
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    # Que Nginx responda y tenga la app para servir. La API tiene su propia comprobación.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/expoideas/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+
+  # Solo en desarrollo (docker compose --profile dev up -d mailpit): atrapa los
+  # correos que envía la API y los muestra en http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit
+    profiles: ["dev"]
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  mysql-data:
+  files:

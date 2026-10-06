@@ -1,0 +1,40 @@
+# Compilados y dependencias
+target/
+dist/
+node_modules/
+*.class
+
+# Vite y cobertura de pruebas
+.vite/
+coverage/
+
+# Logs y volcados de base de datos
+*.log
+*.sql
+!**/db/migration/*.sql
+*.dump
+
+# Entorno y secretos
+.env
+.env.local
+.env.*.local
+application-local.properties
+
+# Archivos subidos en desarrollo local
+uploads/
+
+# Copias de seguridad (scripts/copia.sh): llevan datos reales
+copias/
+
+# Pruebas de punta a punta (qa/): cuentas generadas por el sembrado e informes de Playwright
+qa/credenciales*
+qa/fixtures/
+qa/e2e/test-results/
+qa/e2e/playwright-report/
+
+# Editor / SO
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

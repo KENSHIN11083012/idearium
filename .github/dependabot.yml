@@ -1,0 +1,50 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /expoideas-app
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+    ignore:
+      # ESLint 10 no se puede instalar todavía: eslint-plugin-react va en la
+      # 7.37.5, que es la última publicada, y solo acepta ESLint hasta ^9.7. El
+      # salto rompe el `npm ci` con un ERESOLVE y tumba al grupo npm entero.
+      # Quitar estas dos reglas cuando el plugin soporte ESLint 10.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+
+  # Playwright, para las pruebas de punta a punta.
+  - package-ecosystem: npm
+    directory: /qa/e2e
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: maven
+    directory: /expoideas-api
+    schedule:
+      interval: weekly
+    groups:
+      maven:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /expoideas-api
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /expoideas-app
+    schedule:
+      interval: weekly

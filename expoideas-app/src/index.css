@@ -1,0 +1,173 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Sistema de diseño "Academic Nexus" (diseños de Stitch).
+ *
+ * Los nombres de color siguen los de Stitch (Material 3): primary,
+ * secondary-container, surface-container-low, on-surface-variant... Así las
+ * clases de los diseños exportados funcionan tal cual al portar pantallas.
+ *
+ * Solo modo claro.
+ */
+@theme {
+    /* Tipografía: títulos, texto y etiquetas técnicas */
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Hanken Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+    /* Alias con los nombres de Stitch */
+    --font-display-lg: var(--font-heading);
+    --font-headline-lg: var(--font-heading);
+    --font-title-md: var(--font-heading);
+    --font-body-lg: var(--font-sans);
+    --font-body-md: var(--font-sans);
+    --font-label-sm: var(--font-mono);
+
+    /* Verde institucional Universidad Simón Bolívar */
+    --color-primary: #006735;
+    --color-on-primary: #ffffff;
+    --color-primary-container: #008345;
+    --color-on-primary-container: #e3ffe5;
+    --color-primary-fixed: #8ff9ad;
+    --color-primary-fixed-dim: #72dc93;
+    --color-on-primary-fixed: #00210d;
+    --color-on-primary-fixed-variant: #005229;
+    --color-inverse-primary: #72dc93;
+    --color-surface-tint: #006d38;
+
+    /* Lima: innovación, estados activos y acciones destacadas */
+    --color-secondary: #5b6400;
+    --color-on-secondary: #ffffff;
+    --color-secondary-container: #d9ea3a;
+    --color-on-secondary-container: #4d5600;
+    --color-secondary-fixed: #dced3d;
+    --color-secondary-fixed-dim: #c0d11b;
+    --color-on-secondary-fixed: #1a1e00;
+    --color-on-secondary-fixed-variant: #444b00;
+
+    /* Rojo: acentos puntuales y urgencia */
+    --color-tertiary: #ab2400;
+    --color-on-tertiary: #ffffff;
+    --color-tertiary-container: #d73000;
+    --color-on-tertiary-container: #fff5f3;
+    --color-tertiary-fixed: #ffdad2;
+    --color-tertiary-fixed-dim: #ffb4a2;
+    --color-on-tertiary-fixed: #3d0700;
+    --color-on-tertiary-fixed-variant: #8a1c00;
+
+    /* Error */
+    --color-error: #ba1a1a;
+    --color-on-error: #ffffff;
+    --color-error-container: #ffdad6;
+    --color-on-error-container: #93000a;
+
+    /* Superficies y texto */
+    --color-background: #f9f9fc;
+    --color-on-background: #1a1c1e;
+    --color-surface: #f9f9fc;
+    --color-surface-dim: #dadadc;
+    --color-surface-bright: #f9f9fc;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f3f3f6;
+    --color-surface-container: #eeeef0;
+    --color-surface-container-high: #e8e8ea;
+    --color-surface-container-highest: #e2e2e5;
+    --color-surface-variant: #e2e2e5;
+    --color-on-surface: #1a1c1e;
+    --color-on-surface-variant: #3e4a40;
+    --color-inverse-surface: #2f3133;
+    --color-inverse-on-surface: #f0f0f3;
+    /* También se usa para texto secundario e iconos: con #6e7a6f el contraste sobre
+       el fondo quedaba en 4.3:1, por debajo del 4.5:1 de WCAG AA. Este da 4.9:1. */
+    --color-outline: #647065;
+    --color-outline-variant: #bdcabd;
+
+    /* Sombras "duras" (desplazamiento sin desenfoque) para estados elevados */
+    --shadow-hard: 4px 4px 0 0 var(--color-primary);
+    --shadow-hard-sm: 2px 2px 0 0 var(--color-primary);
+    --shadow-hard-neutral: 4px 4px 0 0 var(--color-on-surface);
+    --shadow-soft: 0 2px 12px rgb(0 0 0 / 0.04);
+}
+
+@layer base {
+    html {
+        color-scheme: light;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-background text-on-surface font-sans antialiased;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        @apply font-heading text-balance;
+    }
+
+    ::selection {
+        @apply bg-primary-container text-on-primary;
+    }
+
+    /* El foco con teclado siempre visible, con el verde institucional */
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-primary;
+    }
+
+    /* El contenido principal recibe el foco al cambiar de página (RouteFocus), para
+       que el lector de pantalla empiece ahí; no es un control y no lleva marco. */
+    main:focus {
+        outline: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        ::before,
+        ::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+/* Retícula de puntos de los fondos "tech" de Stitch */
+@utility tech-grid {
+    background-size: 28px 28px;
+    background-image: radial-gradient(rgb(0 103 53 / 0.12) 1px, transparent 1px);
+}
+
+/* La misma retícula, para fondos verdes */
+@utility tech-grid-light {
+    background-size: 28px 28px;
+    background-image: radial-gradient(rgb(255 255 255 / 0.14) 1px, transparent 1px);
+}
+
+/* Cristal de las barras y tarjetas flotantes */
+@utility glass {
+    background: rgb(255 255 255 / 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Etiqueta técnica de Academic Nexus: JetBrains Mono pequeña en mayúsculas. */
+@utility label-mono {
+    font-family: var(--font-mono);
+    /* En móvil sube a 12px: en mayúsculas y con tracking, 11px se lee justo. */
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+
+    @media (width >= 40rem) {
+        font-size: 11px;
+    }
+}
+
+@utility scrollbar-none {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}

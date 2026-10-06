@@ -1,0 +1,11 @@
+# Normaliza el fin de línea a LF en el repositorio, sin importar el sistema
+# operativo o el core.autocrlf de quien clona (en Windows suele estar en true).
+* text=auto eol=lf
+
+*.cmd text eol=crlf
+
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.ico binary

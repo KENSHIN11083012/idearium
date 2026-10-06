@@ -1,0 +1,6 @@
+# Vulnerabilidades que el escaneo de las imágenes (job «Imágenes Docker» del CI) no debe
+# tratar como bloqueantes. Una por línea, con su identificador (CVE-AAAA-NNNNN).
+#
+# Aquí solo entra lo que se revisó y no aplica a Idearium, con el motivo y la fecha en un
+# comentario encima. Lo normal ante un aviso crítico es actualizar la dependencia o la
+# imagen base, no silenciarlo.

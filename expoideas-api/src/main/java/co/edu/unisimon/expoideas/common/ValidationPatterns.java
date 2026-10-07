@@ -26,5 +26,20 @@ public final class ValidationPatterns {
 
     public static final String INSTITUTIONAL_EMAIL_MESSAGE = "El correo debe terminar en @unisimon.edu.co";
 
+    /**
+     * Celular colombiano: diez dígitos y empieza por 3. Se guarda así, sin espacios
+     * ni indicativo; la app quita lo que sobra antes de enviarlo.
+     */
+    public static final String MOBILE_PHONE = "^3\\d{9}$";
+
+    public static final String MOBILE_PHONE_MESSAGE = "Escribe un celular de 10 dígitos, por ejemplo 3001234567";
+
+    /** Semestres que se pueden declarar. Doce cubre los programas más largos. */
+    public static final int MIN_SEMESTER = 1;
+
+    public static final int MAX_SEMESTER = 12;
+
+    public static final String SEMESTER_MESSAGE = "Indica el semestre que cursas, del 1 al 12";
+
     private ValidationPatterns() {}
 }

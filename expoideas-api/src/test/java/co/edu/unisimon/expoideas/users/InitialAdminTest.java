@@ -65,11 +65,14 @@ class InitialAdminTest {
         assertThat(admin.getEmail()).isEqualTo(EMAIL);
         assertThat(admin.getRole()).isEqualTo(Role.ADMIN);
         assertThat(admin.getPasswordHash()).isEqualTo("hash-de-arranque");
-        // La contraseña del entorno es temporal, y los datos los pone la persona: el primer ingreso pide las tres
-        // cosas.
+        // La contraseña del entorno es temporal, y los datos y la foto los pone la persona: el primer ingreso
+        // pide las cuatro cosas.
         assertThat(admin.pendingSteps())
                 .containsExactly(
-                        OnboardingStep.CHANGE_PASSWORD, OnboardingStep.DATA_CONSENT, OnboardingStep.COMPLETE_PROFILE);
+                        OnboardingStep.CHANGE_PASSWORD,
+                        OnboardingStep.DATA_CONSENT,
+                        OnboardingStep.COMPLETE_PROFILE,
+                        OnboardingStep.PROFILE_PHOTO);
         verify(events)
                 .publishEvent(new AuditableAction(
                         Action.ADMIN_BOOTSTRAPPED, 1, EMAIL, "Cuenta creada (ADMIN_EMAIL, al arrancar)"));

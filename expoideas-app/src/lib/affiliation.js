@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
 /**
- * Adscripción académica (sede, facultad y programa opcional), compartida por el
+ * Adscripción académica (campus, facultad y programa opcional), compartida por el
  * registro, el perfil y la gestión de cuentas. Los <select> entregan los ids
  * como texto.
  */
 export const affiliationShape = {
-    campusId: z.string().min(1, 'Selecciona la sede'),
+    campusId: z.string().min(1, 'Selecciona el campus'),
     facultyId: z.string().min(1, 'Selecciona la facultad'),
     academicProgramId: z.string(),
 };

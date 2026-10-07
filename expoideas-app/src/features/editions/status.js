@@ -21,6 +21,27 @@ export const editionStatus = (edition) => {
     return { label: 'Cerrada', variant: 'outline' };
 };
 
+/** El día como instante en UTC, solo para restar días de calendario sin que la hora ni el cambio de horario estorben. */
+const utcDay = (isoDay) => {
+    const [year, month, day] = isoDay.split('-').map(Number);
+    return Date.UTC(year, month - 1, day);
+};
+
+/**
+ * Cuántos días faltan para ese día ("2026-11-28"): 0 si es hoy, negativo si ya
+ * pasó. Un plazo que cierra un día vale hasta el final de ese día, así que el
+ * último día cuenta como 0, no como vencido.
+ */
+export const daysUntil = (isoDay, from = today()) => Math.round((utcDay(isoDay) - utcDay(from)) / 86_400_000);
+
+/** Lo que falta para un cierre, en palabras; null si ya pasó. */
+export const timeLeft = (isoDay, from = today()) => {
+    const days = daysUntil(isoDay, from);
+    if (days < 0) return null;
+    if (days === 0) return 'Hoy es el último día';
+    return days === 1 ? 'Queda 1 día' : `Quedan ${days} días`;
+};
+
 /** "2026-11-03" -> "3 nov 2026". Sin zona horaria: es un día, no un instante. */
 export const formatDay = (isoDay) => {
     if (!isoDay) return '';

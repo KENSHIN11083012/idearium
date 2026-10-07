@@ -2,6 +2,7 @@ package co.edu.unisimon.expoideas.users;
 
 import static co.edu.unisimon.expoideas.users.OnboardingStep.CHANGE_PASSWORD;
 import static co.edu.unisimon.expoideas.users.OnboardingStep.DATA_CONSENT;
+import static co.edu.unisimon.expoideas.users.OnboardingStep.PROFILE_PHOTO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +22,7 @@ import co.edu.unisimon.expoideas.catalogs.Faculty;
 import co.edu.unisimon.expoideas.catalogs.FacultyRepository;
 import co.edu.unisimon.expoideas.catalogs.PrototypeTypeRepository;
 import co.edu.unisimon.expoideas.catalogs.SectorRepository;
+import co.edu.unisimon.expoideas.common.AccountAnonymizedEvent;
 import co.edu.unisimon.expoideas.common.AuditableAction;
 import co.edu.unisimon.expoideas.common.AuditableAction.Action;
 import co.edu.unisimon.expoideas.common.ConflictException;
@@ -29,6 +31,9 @@ import co.edu.unisimon.expoideas.common.InvalidFieldsException;
 import co.edu.unisimon.expoideas.files.FileService;
 import co.edu.unisimon.expoideas.files.StoredFile;
 import co.edu.unisimon.expoideas.support.TestData;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +79,14 @@ class UserManagementServiceTest {
     @Mock
     private ApplicationEventPublisher events;
 
+    @Mock
+    private RosterRepository rosterRepository;
+
+    @Mock
+    private AccountTokenRepository tokenRepository;
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2027, 2, 1, 8, 0);
+
     private UserManagementService service;
 
     private final Faculty engineering = new Faculty(10, "Ingeniería");
@@ -94,10 +107,13 @@ class UserManagementServiceTest {
         // tienen su propia prueba de integración.
         service = new UserManagementService(
                 userRepository,
+                rosterRepository,
+                tokenRepository,
                 new AffiliationResolver(lookup),
                 new PasswordUpdater(passwordEncoder),
                 fileService,
                 events,
+                Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
                 List.of());
 
         admin = TestData.user(1, ADMIN_EMAIL, Role.ADMIN);
@@ -263,7 +279,7 @@ class UserManagementServiceTest {
             UserResponse created =
                     service.create(ADMIN_EMAIL, newAccount("pedro@consultora.co", Role.JUDGE, null, null));
 
-            assertThat(created.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT);
+            assertThat(created.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT, PROFILE_PHOTO);
         }
 
         @Test
@@ -365,6 +381,79 @@ class UserManagementServiceTest {
             order.verify(fileService).deleteAllOwnedBy(student);
             order.verify(userRepository).delete(student);
             assertThat(student.getPhoto()).isNull();
+        }
+    }
+
+    @Nested
+    class Anonymization {
+
+        @Test
+        void takesAwayTheNameTheEmailThePhotoAndTheAccess() {
+            StoredFile photo = StoredFile.builder().uuid("foto").build();
+            student.setPhoto(photo);
+            student.setEmail("Ana@unisimon.edu.co");
+
+            UserResponse anonymized = service.anonymize(ADMIN_EMAIL, 3);
+
+            assertThat(anonymized.anonymized()).isTrue();
+            assertThat(anonymized.email()).isEqualTo("anonimo-3@anonimo.invalid");
+            assertThat(anonymized.firstName()).isNull();
+            assertThat(anonymized.suspended()).isTrue();
+            assertThat(anonymized.photoId()).isNull();
+            assertThat(student.getAnonymizedAt()).isEqualTo(NOW);
+            assertThat(student.getPasswordHash()).isEqualTo("hash-nuevo");
+            verify(fileService).delete(photo);
+            verify(tokenRepository).deleteByUserId(3);
+            // El listado guarda los correos en minúsculas.
+            verify(rosterRepository).deleteByEmail("ana@unisimon.edu.co");
+            // La cuenta no se borra: su historial sigue en pie.
+            verify(userRepository, never()).delete(any());
+            verify(fileService, never()).deleteAllOwnedBy(any());
+        }
+
+        @Test
+        void theTrailForgetsWhoItWasBeforeRecordingTheAnonymization() {
+            service.anonymize(ADMIN_EMAIL, 3);
+
+            InOrder order = inOrder(events);
+            order.verify(events)
+                    .publishEvent(new AccountAnonymizedEvent(
+                            3, "ana@unisimon.edu.co", "Nombre Apellido", "anonimo-3@anonimo.invalid"));
+            // Lo que queda escrito ya no dice el correo que tenía.
+            order.verify(events)
+                    .publishEvent(new AuditableAction(
+                            Action.ACCOUNT_ANONYMIZED, 3, "anonimo-3@anonimo.invalid", "Estudiante"));
+        }
+
+        @Test
+        void nobodyAnonymizesTheirOwnAccount() {
+            assertThatThrownBy(() -> service.anonymize(ADMIN_EMAIL, 1))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("No puedes anonimizar tu propia cuenta.");
+            assertThat(admin.isAnonymized()).isFalse();
+            verify(events, never()).publishEvent(any());
+        }
+
+        @Test
+        void anAnonymizedAccountIsNotTouchedAgain() {
+            service.anonymize(ADMIN_EMAIL, 3);
+
+            String message = "Esta cuenta fue anonimizada: ya no se puede modificar.";
+            assertThatThrownBy(() -> service.anonymize(ADMIN_EMAIL, 3))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage(message);
+            assertThatThrownBy(() -> service.reactivate(ADMIN_EMAIL, 3))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage(message);
+            assertThatThrownBy(() -> service.suspend(ADMIN_EMAIL, 3)).isInstanceOf(ConflictException.class);
+            assertThatThrownBy(() -> service.update(ADMIN_EMAIL, 3, withRole(Role.JUDGE)))
+                    .isInstanceOf(ConflictException.class);
+            assertThatThrownBy(() -> service.resetPassword(
+                            ADMIN_EMAIL, 3, new PasswordResetRequest("Segura#2026", "Segura#2026")))
+                    .isInstanceOf(ConflictException.class);
+            // Sigue sin acceso y con el rol que tenía.
+            assertThat(student.isEnabled()).isFalse();
+            assertThat(student.getRole()).isEqualTo(Role.STUDENT);
         }
     }
 

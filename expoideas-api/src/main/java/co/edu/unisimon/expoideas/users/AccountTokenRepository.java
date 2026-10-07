@@ -16,4 +16,7 @@ public interface AccountTokenRepository extends JpaRepository<AccountToken, Inte
 
     /** Quita los enlaces anteriores de ese tipo: al pedir uno nuevo, los viejos dejan de servir. */
     void deleteByUserIdAndPurpose(Integer userId, AccountTokenPurpose purpose);
+
+    /** Quita todos los enlaces de la cuenta: ninguno debe servir cuando deja de ser de alguien. */
+    void deleteByUserId(Integer userId);
 }

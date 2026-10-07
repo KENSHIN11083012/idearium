@@ -146,6 +146,36 @@ describe('Listado para la gestión', () => {
         await waitFor(() => expect(downloadProjectsCsv).toHaveBeenCalledWith(expect.objectContaining({ track: 'INNPRENDE_I' })));
     });
 
+    it('ordena por título o por lo más reciente, y el CSV sale en ese mismo orden', async () => {
+        renderPage({ paging: { totalPages: 3, totalItems: 61 } });
+        await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+        await waitFor(() => expect(lastPaging().page).toBe(1));
+
+        // Sin elegir nada no se pide orden: la API pone el suyo, el más reciente primero.
+        expect(screen.getByLabelText('Ordenar por')).toHaveValue('');
+        expect(lastFilters().sort).toBe('');
+
+        await userEvent.selectOptions(screen.getByLabelText('Ordenar por'), 'Título (A–Z)');
+
+        // Otro orden es otra lista: se vuelve a la primera página.
+        await waitFor(() => expect(lastFilters()).toMatchObject({ sort: 'TITLE' }));
+        expect(lastPaging().page).toBe(0);
+
+        await userEvent.click(screen.getByRole('button', { name: /Descargar CSV/ }));
+        await waitFor(() => expect(downloadProjectsCsv).toHaveBeenCalledWith(expect.objectContaining({ sort: 'TITLE' })));
+    });
+
+    it('quitar los filtros no cambia el orden elegido', async () => {
+        renderPage({ projects: [] });
+        await userEvent.selectOptions(screen.getByLabelText('Ordenar por'), 'TITLE');
+        await userEvent.selectOptions(screen.getByLabelText('Cátedra'), 'INNPRENDE_II');
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Quitar filtros' }));
+
+        await waitFor(() => expect(lastFilters()).toMatchObject({ track: '', sort: 'TITLE' }));
+        expect(screen.getByLabelText('Ordenar por')).toHaveValue('TITLE');
+    });
+
     it('sin proyectos lo dice, y con filtros ofrece quitarlos', async () => {
         renderPage({ projects: [] });
         expect(screen.getByText('Todavía no hay proyectos inscritos')).toBeInTheDocument();

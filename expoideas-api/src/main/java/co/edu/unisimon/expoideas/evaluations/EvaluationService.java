@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -260,7 +261,7 @@ public class EvaluationService {
      */
     @Transactional(readOnly = true)
     public ReminderResponse remind(Integer editionId, Track track) {
-        List<Project> projects = projectRepository.search(editionId, track, null, null, null, null);
+        List<Project> projects = projectRepository.search(editionId, track, null, null, null, null, Sort.unsorted());
         Map<Integer, List<User>> jurorsByProject = evaluatorRule.evaluatorsByProject(projects);
         Map<Integer, List<Evaluation>> evaluationsByProject = evaluationsByProject(projects);
 

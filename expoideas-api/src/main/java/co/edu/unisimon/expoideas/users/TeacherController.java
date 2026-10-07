@@ -21,7 +21,7 @@ public class TeacherController {
 
     @GetMapping
     public List<TeacherResponse> list() {
-        return userRepository.findAllWithProfileByRole(Role.TEACHER).stream()
+        return userRepository.findAllWithProfileByRoleAndAnonymizedAtIsNull(Role.TEACHER).stream()
                 .sorted(Comparator.comparing(User::fullName, String.CASE_INSENSITIVE_ORDER))
                 .map(TeacherResponse::from)
                 .toList();

@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Adscripción académica de una cuenta: sede y facultad obligatorias y programa
+ * Adscripción académica de una cuenta: campus y facultad obligatorios y programa
  * opcional, que si existe debe ser de esa facultad. La usan el registro, el
  * perfil y la gestión.
  */
@@ -28,7 +28,7 @@ class AffiliationResolver {
     static Map<String, String> missingFields(Integer campusId, Integer facultyId) {
         Map<String, String> fields = new LinkedHashMap<>();
         if (campusId == null) {
-            fields.put("campusId", "La sede es obligatoria");
+            fields.put("campusId", "El campus es obligatorio");
         }
         if (facultyId == null) {
             fields.put("facultyId", "La facultad es obligatoria");
@@ -39,8 +39,8 @@ class AffiliationResolver {
     /**
      * Reemplaza la adscripción completa.
      *
-     * @throws InvalidFieldsException si faltan sede o facultad, o el programa es de otra facultad
-     * @throws NoSuchElementException si la sede, la facultad o el programa no existen
+     * @throws InvalidFieldsException si faltan campus o facultad, o el programa es de otra facultad
+     * @throws NoSuchElementException si el campus, la facultad o el programa no existen
      */
     void assign(User user, Integer campusId, Integer facultyId, Integer academicProgramId) {
         Map<String, String> missing = missingFields(campusId, facultyId);

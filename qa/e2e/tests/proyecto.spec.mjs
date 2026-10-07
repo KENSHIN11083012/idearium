@@ -18,20 +18,24 @@ test("estudiante1 inscribe un proyecto en INNPRENDE I", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Inscribir proyecto" });
   await dialog.getByLabel("Edición").selectOption({ label: "Expo QA" });
   await dialog.getByLabel("Cátedra").selectOption("INNPRENDE_I");
-  await dialog.getByLabel("Título del proyecto").fill(title);
+  await dialog.getByLabel("Título del proyecto de innovación").fill(title);
   await dialog.getByLabel("Propuesta de valor").fill("Probado de punta a punta desde el navegador.");
   await dialog.getByLabel("Sector").selectOption({ label: "QA Tecnología" });
   await dialog.getByLabel("Profesor del grupo").selectOption(String(creds.docente1.id));
+  await dialog.getByLabel("Semestre que cursas").selectOption("5");
+  await dialog.getByLabel("Tu celular").fill("300 123 4567");
   await dialog.getByRole("button", { name: "Inscribir" }).click();
   await expect(page.getByText(`"${title}" quedó inscrito`)).toBeVisible();
 
   await page.goto(path("/mis-proyectos"));
   await page.locator("[data-slot=card]").filter({ hasText: title }).getByRole("link", { name: /Ver proyecto/ }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  // El equipo ve cuánto le queda para entregar.
+  await expect(page.getByText(/para entregar/)).toBeVisible();
   projectUrl = page.url();
 });
 
-test("el líder invita: un profesor no se puede, un estudiante sí", async ({ page }) => {
+test("el líder invita: un profesor no se puede; a su compañero lo busca por el nombre", async ({ page }) => {
   await loginAs(page, "estudiante1");
   await page.goto(projectUrl);
   const correo = page.getByLabel("Invitar a un compañero");
@@ -40,8 +44,12 @@ test("el líder invita: un profesor no se puede, un estudiante sí", async ({ pa
   await page.getByRole("button", { name: "Invitar" }).click();
   await expect(correo).toHaveAttribute("aria-invalid", "true");
 
-  await correo.fill(creds.estudiante2.email);
-  await page.getByRole("button", { name: "Invitar" }).click();
+  // No hace falta saberse el correo: se escribe el nombre y se elige de la lista.
+  await correo.fill("Estudiante2");
+  const found = page.getByRole("list", { name: "Compañeros encontrados" });
+  await expect(found.getByText(creds.estudiante2.email)).toHaveCount(0); // el correo completo no sale
+  await found.getByRole("button", { name: "Invitar a Estudiante2 QA" }).click();
+  await expect(correo).toHaveValue("");
   const team = page.getByRole("listitem").filter({ hasText: creds.estudiante2.email });
   await expect(team.getByText("Invitación enviada")).toBeVisible();
 });
@@ -51,6 +59,10 @@ test("estudiante2 acepta la invitación desde Mis proyectos", async ({ page }) =
   await page.goto(path("/mis-proyectos"));
   await expect(page.getByRole("heading", { name: "Invitaciones" })).toBeVisible();
   const invitation = page.locator("[data-slot=card]").filter({ hasText: title });
+  // Para entrar al equipo dice el semestre que cursa.
+  await invitation.getByRole("button", { name: "Aceptar" }).click();
+  await expect(invitation.getByRole("alert")).toBeVisible();
+  await invitation.getByLabel("Semestre que cursas").selectOption("3");
   await invitation.getByRole("button", { name: "Aceptar" }).click();
   await expect(page.getByText(`Ya eres del equipo de "${title}"`)).toBeVisible();
   await expect(page.locator("[data-slot=card]").filter({ hasText: title }).getByRole("link", { name: /Ver proyecto/ })).toBeVisible();
@@ -87,6 +99,23 @@ test("el profesor del grupo ve el proyecto con el entregable completo", async ({
   await expect(row).toBeVisible();
   await expect(row).toContainText("2 integrantes");
   await expect(row).toContainText("Entregado");
+});
+
+test("un integrante no se sale por su cuenta: le dice a quién pedírselo", async ({ page }) => {
+  await loginAs(page, "estudiante2");
+  await page.goto(projectUrl);
+  await expect(page.getByText("Para salir de este equipo o cambiarte a otro, pídeselo a MacondoLab.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Salir del equipo|^Quitar a/ })).toHaveCount(0);
+});
+
+test("MacondoLab retira al integrante del equipo", async ({ page }) => {
+  await loginAs(page, "macondolab");
+  await page.goto(projectUrl);
+  const member = page.getByRole("listitem").filter({ hasText: creds.estudiante2.email });
+  await member.getByRole("button", { name: /^Quitar a/ }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Quitar" }).click();
+  await expect(member).toHaveCount(0);
+  await expect(page.getByText(/^1 de \d+ integrantes/)).toBeVisible();
 });
 
 test("el líder elimina la inscripción", async ({ page }) => {

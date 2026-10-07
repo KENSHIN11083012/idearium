@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Lo que cada persona puede cambiar de su perfil: nombre y, si su rol la lleva,
- * adscripción académica (sede y facultad obligatorias en ese caso; la gestión y
+ * adscripción académica (campus y facultad obligatorios en ese caso; la gestión y
  * los jurados no la tienen y se ignora).
  */
 public record ProfileUpdateRequest(

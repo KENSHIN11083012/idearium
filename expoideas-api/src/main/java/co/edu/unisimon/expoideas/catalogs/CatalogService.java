@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Alta, edición y listado de los catálogos: estructura académica (sedes,
+ * Alta, edición y listado de los catálogos: estructura académica (campus,
  * facultades, programas) y clasificación de proyectos (sectores, keywords).
  *
- * <p>Sedes, facultades, sectores y keywords solo tienen nombre y comparten el
+ * <p>Campus, facultades, sectores y keywords solo tienen nombre y comparten el
  * mismo código a través de {@link CatalogItem}. Los programas llevan además su
  * facultad.
  *
@@ -31,7 +31,7 @@ public class CatalogService {
     private final KeywordRepository keywordRepository;
     private final CatalogLookup lookup;
 
-    // ── Sedes ───────────────────────────────────────────────────────────────
+    // ── Campus ──────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<CatalogItemResponse> listCampuses() {
@@ -46,7 +46,7 @@ public class CatalogService {
     /** @throws NoSuchElementException si el id no existe */
     @Transactional
     public CatalogItemResponse updateCampus(Integer id, CatalogItemRequest request) {
-        return update(campusRepository, id, request, "una sede");
+        return update(campusRepository, id, request, "un campus");
     }
 
     // ── Facultades ──────────────────────────────────────────────────────────

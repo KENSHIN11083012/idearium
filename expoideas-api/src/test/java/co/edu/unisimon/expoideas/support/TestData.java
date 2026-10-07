@@ -9,6 +9,7 @@ import co.edu.unisimon.expoideas.common.ExpoideasProperties.FilesSettings;
 import co.edu.unisimon.expoideas.common.ExpoideasProperties.JwtSettings;
 import co.edu.unisimon.expoideas.common.ExpoideasProperties.LoginSettings;
 import co.edu.unisimon.expoideas.common.ExpoideasProperties.MailSettings;
+import co.edu.unisimon.expoideas.files.StoredFile;
 import co.edu.unisimon.expoideas.users.Role;
 import co.edu.unisimon.expoideas.users.User;
 import java.io.ByteArrayOutputStream;
@@ -49,7 +50,8 @@ public final class TestData {
                 .email(email)
                 .passwordHash("hash-actual")
                 .role(role)
-                .dataConsent(true);
+                .dataConsent(true)
+                .photo(StoredFile.builder().id(id).uuid("foto-" + id).build());
         if (role.requiresAffiliation()) {
             user.campus(new Campus(1, "Barranquilla")).faculty(new Faculty(10, "Ingeniería"));
         }

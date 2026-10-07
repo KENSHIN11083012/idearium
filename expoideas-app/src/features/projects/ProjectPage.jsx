@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, CalendarClock, ClipboardCheck, Crown, LogOut, Pencil, Trash2, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ClipboardCheck, Crown, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { blockingError } from '@/lib/queryState';
 import { ROUTES } from '@/lib/routes';
 import { trackLabel } from '@/lib/tracks';
-import { handleFormError } from '@/lib/validation';
 import { useAuth } from '@/features/auth/useAuth';
 import { PageContainer } from '@/components/layout/AppShell';
 import { PageHeader } from '@/components/ui/page-header';
@@ -16,8 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ErrorState, Skeleton } from '@/components/ui/feedback';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { ProjectDeliverables } from '@/features/deliverables/ProjectDeliverables';
 import { MyGrade } from '@/features/evaluations/MyGrade';
@@ -27,52 +22,11 @@ import { useJuryProjects } from '@/features/jury/queries';
 import { canBeJuror } from '@/features/jury/schemas';
 import { useProjectPresentation } from '@/features/presentations/queries';
 import { formatDateTime } from '@/features/presentations/schemas';
-import { useDeleteProject, useInviteMember, useProject, useRemoveMember, useSetResult } from './queries';
-import { RESULTS, RESULT_LABELS, invitationSchema, resultLabel } from './schemas';
+import { InviteForm } from './InviteForm';
+import { useDeleteProject, useProject, useRemoveMember, useSetResult } from './queries';
+import { SubmissionDeadline } from './SubmissionDeadline';
+import { RESULTS, RESULT_LABELS, resultLabel } from './schemas';
 import { ProjectDialog } from './ProjectDialog';
-
-/** Formulario para invitar por correo. Solo lo ve el líder. */
-function InviteForm({ projectId, disabled }) {
-    const invite = useInviteMember(projectId);
-    const {
-        register,
-        handleSubmit,
-        reset,
-        setError,
-        control,
-        formState: { errors, isSubmitting },
-    } = useForm({ resolver: zodResolver(invitationSchema), defaultValues: { email: '' } });
-
-    const submit = async ({ email }) => {
-        try {
-            await invite.mutateAsync(email);
-            toast.success(`Invitamos a ${email}`);
-            reset();
-        } catch (error) {
-            if (error.status === 409) {
-                setError('email', { type: 'server', message: error.message }, { shouldFocus: true });
-            } else {
-                handleFormError(error, setError, control);
-            }
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit(submit)} noValidate className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <Field
-                label="Invitar a un compañero"
-                error={errors.email?.message ?? errors.root?.message}
-                hint="Debe tener cuenta en Idearium."
-                className="flex-1"
-            >
-                <Input type="email" autoComplete="off" placeholder="nombre@unisimon.edu.co" {...register('email')} />
-            </Field>
-            <Button type="submit" loading={isSubmitting} disabled={disabled} className="sm:mt-6">
-                <UserPlus /> Invitar
-            </Button>
-        </form>
-    );
-}
 
 /**
  * El resultado del proyecto. Lo ve todo el mundo; lo cambian el profesor del
@@ -147,7 +101,7 @@ function PresentationCard({ projectId }) {
     );
 }
 
-function TeamMember({ member, canRemove, isMe, onRemove }) {
+function TeamMember({ member, canRemove, onRemove }) {
     return (
         <li className="flex items-center justify-between gap-3 rounded border border-outline-variant/60 px-4 py-3">
             <div className="flex flex-col gap-0.5">
@@ -160,16 +114,14 @@ function TeamMember({ member, canRemove, isMe, onRemove }) {
                     )}
                     {member.status === 'INVITED' && <Badge variant="outline">Invitación enviada</Badge>}
                 </p>
-                <p className="text-xs text-on-surface-variant">{member.email}</p>
+                <p className="text-xs text-on-surface-variant">
+                    {member.email}
+                    {member.semester ? ` · Semestre ${member.semester}` : ''}
+                </p>
             </div>
             {canRemove && (
-                <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={onRemove}
-                    aria-label={isMe ? 'Salir del equipo' : `Quitar a ${member.fullName}`}
-                >
-                    {isMe ? <LogOut /> : <X />}
+                <Button variant="ghost" size="icon-sm" onClick={onRemove} aria-label={`Quitar a ${member.fullName}`}>
+                    <X />
                 </Button>
             )}
         </li>
@@ -178,8 +130,9 @@ function TeamMember({ member, canRemove, isMe, onRemove }) {
 
 /**
  * Un proyecto con su equipo. El líder edita los datos, invita, quita
- * integrantes y puede eliminar la inscripción; los demás pueden salirse.
- * Todo eso, mientras la inscripción de la edición siga abierta.
+ * integrantes y puede eliminar la inscripción. Un integrante no se sale ni se
+ * cambia de equipo por su cuenta: lo retira el líder o la gestión. Todo eso,
+ * mientras la inscripción de la edición siga abierta.
  */
 export default function ProjectPage() {
     const { id } = useParams();
@@ -226,10 +179,7 @@ export default function ProjectPage() {
     const removeFromTeam = async (member) => {
         try {
             await removeMember.mutateAsync(member.userId);
-            toast.success(member.userId === user?.id ? 'Saliste del equipo' : `${member.fullName} salió del equipo`);
-            if (member.userId === user?.id) {
-                navigate(ROUTES.MY_PROJECTS);
-            }
+            toast.success(`${member.fullName} salió del equipo`);
         } catch (removeError) {
             toast.error(removeError.message);
         } finally {
@@ -308,12 +258,21 @@ export default function ProjectPage() {
                                 <dt className="label-mono text-on-surface-variant">Profesor del grupo</dt>
                                 <dd className="text-on-surface">{project.teacher}</dd>
                             </div>
+                            {/* Solo llega a quien puede llamarlo: el líder, su profesor y la gestión. */}
+                            {project.leaderPhone && (
+                                <div>
+                                    <dt className="label-mono text-on-surface-variant">Celular del líder</dt>
+                                    <dd className="text-on-surface">{project.leaderPhone}</dd>
+                                </div>
+                            )}
                         </dl>
                         {!open && (
                             <p className="text-sm text-on-surface-variant">
                                 Las inscripciones de {project.edition} ya cerraron: el equipo y los datos quedaron fijos.
                             </p>
                         )}
+                        {/* Cerradas las entregas, lo dice la sección de entregables. */}
+                        {project.submissionOpen && <SubmissionDeadline project={project} />}
                         {(project.result || !project.submissionOpen) && <ProjectResult project={project} canSet={canSetResult} />}
                     </Card>
                 </aside>
@@ -335,12 +294,18 @@ export default function ProjectPage() {
                                 <TeamMember
                                     key={member.userId}
                                     member={member}
-                                    isMe={member.userId === user?.id}
-                                    canRemove={open && member.teamRole !== 'LEADER' && (isLeader || member.userId === user?.id)}
+                                    canRemove={open && member.teamRole !== 'LEADER' && (isLeader || isManagement)}
                                     onRemove={() => setConfirm({ member })}
                                 />
                             ))}
                         </ul>
+
+                        {/* Salir o cambiarse de equipo no es cosa de cada quien: pasa por la gestión. */}
+                        {open && me?.status === 'ACCEPTED' && !isLeader && (
+                            <p className="text-sm text-on-surface-variant">
+                                Para salir de este equipo o cambiarte a otro, pídeselo a MacondoLab.
+                            </p>
+                        )}
 
                         {isLeader && open && <InviteForm projectId={project.id} disabled={full} />}
                         {isLeader && open && full && (
@@ -377,9 +342,7 @@ export default function ProjectPage() {
                 description={
                     confirm?.project
                         ? `"${project.title}" y su equipo se eliminan. Esta acción no se puede deshacer.`
-                        : confirm?.member?.userId === user?.id
-                          ? `Vas a salir del equipo de "${project.title}".`
-                          : `${confirm?.member?.fullName ?? ''} dejará de estar en el equipo.`
+                        : `${confirm?.member?.fullName ?? ''} dejará de estar en el equipo.`
                 }
                 confirmLabel={confirm?.project ? 'Eliminar' : 'Quitar'}
                 onConfirm={() => (confirm?.project ? remove() : removeFromTeam(confirm.member))}

@@ -26,7 +26,7 @@ describe('newAccountSchemaFor', () => {
         expect(fieldsWithError(ROLES.JUDGE, { email: 'marta' })).toEqual(['email']);
     });
 
-    it('un docente exige correo institucional, sede y facultad', () => {
+    it('un docente exige correo institucional, campus y facultad', () => {
         expect(fieldsWithError(ROLES.TEACHER, { email: 'pedro@gmail.com' })).toEqual(['email', 'campusId', 'facultyId']);
     });
 

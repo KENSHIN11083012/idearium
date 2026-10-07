@@ -34,7 +34,19 @@ export const useSaveProject = () =>
 
 export const useDeleteProject = () => useTeamMutation((id) => projectApi.remove(id));
 
-export const useInviteMember = (projectId) => useTeamMutation((email) => projectApi.invite(projectId, email));
+/** @param invitee `{ email }` o `{ userId }` */
+export const useInviteMember = (projectId) => useTeamMutation((invitee) => projectApi.invite(projectId, invitee));
+
+/** Letras que hacen falta para buscar a un compañero: las mismas que exige la API. */
+export const MIN_CANDIDATE_SEARCH = 3;
+
+/** A quién puede invitar el líder con ese nombre. Con menos letras de las necesarias no se pregunta. */
+export const useInvitationCandidates = (projectId, search) =>
+    useQuery({
+        queryKey: ['invitation-candidates', String(projectId), search],
+        queryFn: () => projectApi.searchCandidates(projectId, search),
+        enabled: search.length >= MIN_CANDIDATE_SEARCH,
+    });
 
 export const useRemoveMember = (projectId) => useTeamMutation((userId) => projectApi.removeMember(projectId, userId));
 
@@ -51,4 +63,6 @@ export const useSetResult = (projectId) => {
 };
 
 export const useAnswerInvitation = () =>
-    useTeamMutation(({ id, accept }) => (accept ? projectApi.acceptInvitation(id) : projectApi.declineInvitation(id)));
+    useTeamMutation(({ id, accept, semester }) =>
+        accept ? projectApi.acceptInvitation(id, semester) : projectApi.declineInvitation(id),
+    );

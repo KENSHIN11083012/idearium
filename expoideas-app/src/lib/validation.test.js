@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiError } from '@/test/utils';
-import { PASSWORD_REQUIREMENTS, handleFormError, placeServerErrors, rules } from './validation';
+import { PASSWORD_REQUIREMENTS, handleFormError, normalizePhone, placeServerErrors, rules } from './validation';
 
 const accepts = (password) => rules.password().safeParse(password).success;
 
@@ -89,5 +89,23 @@ describe('los errores de la API en un formulario', () => {
             type: 'server',
             message: 'Error del servidor. Intenta nuevamente más tarde.',
         });
+    });
+});
+
+describe('El celular', () => {
+    it('se deja en sus diez dígitos, como lo guarda la API', () => {
+        expect(normalizePhone('300 123 4567')).toBe('3001234567');
+        expect(normalizePhone('(300) 123-4567')).toBe('3001234567');
+        expect(normalizePhone('+57 300 123 4567')).toBe('3001234567');
+        expect(normalizePhone('')).toBe('');
+    });
+
+    it('vale si quedan diez dígitos y empieza por 3', () => {
+        const phone = rules.mobilePhone();
+
+        expect(phone.parse('+57 310 555 0101')).toBe('3105550101');
+        expect(phone.safeParse('6051234567').success).toBe(false);
+        expect(phone.safeParse('300123').success).toBe(false);
+        expect(phone.safeParse('').error.issues[0].message).toBe('Ingresa tu celular');
     });
 });

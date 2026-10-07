@@ -1,7 +1,7 @@
 // Recorrido de la API por rol, con asserts. Sale con código ≠0 si algo falla.
 // Deja la base como la encontró salvo catálogos, edición y entregables QA (se reutilizan).
 // Uso (desde la raíz del repo, después de seed.mjs): node qa/smoke.mjs
-import { API, api, loadCreds, login, multipartFile } from "./lib.mjs";
+import { API, PNG, api, loadCreds, login, multipartFile } from "./lib.mjs";
 
 const creds = loadCreds();
 const results = [];
@@ -30,10 +30,6 @@ const section = (t) => console.log(`\n${t}`);
 const PDF = Buffer.from(
   "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj " +
     "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
-);
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
 );
 const FAKE_EXE = Buffer.concat([Buffer.from("MZ\x90\x00"), Buffer.alloc(512)]);
 const BIG_PDF = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(5 * 1024 * 1024 + 1024, 0x20)]);
@@ -193,6 +189,7 @@ for (const k of ["estudiante1", "estudiante2", "estudiante3", "estudiante4"]) {
 const docente1Id = creds.docente1.id;
 const projectBody = {
   editionId: 0, track: "INNPRENDE_I", title: "QA Proyecto Humo", summary: "Proyecto creado por el smoke test.", sectorId: 0, teacherId: docente1Id,
+  semester: 5, phone: "3001234567",
 };
 let project;
 await check("TEACHER no inscribe proyectos → 403", async () =>
@@ -221,14 +218,43 @@ await check("un no-líder no invita → 403", async () => expect(await invite("e
 const accept = async (who, action) => {
   const inv = expect(await api("GET", "/invitations", { token: tok[who] }), 200).find((i) => i.projectId === project.id);
   assert(inv, `${who} no ve la invitación`);
-  return api("POST", `/invitations/${inv.id}/${action}`, { token: tok[who] });
+  // Quien acepta dice el semestre que cursa.
+  return api("POST", `/invitations/${inv.id}/${action}`, { token: tok[who], json: action === "acceptance" ? { semester: 3 } : undefined });
 };
+await check("aceptar sin decir el semestre → 400", async () => {
+  const inv = expect(await api("GET", "/invitations", { token: tok.estudiante2 }), 200).find((i) => i.projectId === project.id);
+  expect(await api("POST", `/invitations/${inv.id}/acceptance`, { token: tok.estudiante2, json: {} }), 400);
+});
 await check("estudiante2 acepta", async () => expect(await accept("estudiante2", "acceptance"), 200, 204));
+await check("el celular del líder lo ven él, su profesor y la gestión; su compañero no", async () => {
+  const seen = async (who) => expect(await api("GET", `/projects/${project.id}`, { token: tok[who] }), 200);
+  for (const who of ["estudiante1", "docente1", "macondolab"]) {
+    assert((await seen(who)).leaderPhone === "3001234567", `${who} no ve el celular`);
+  }
+  const member = await seen("estudiante2");
+  assert(member.leaderPhone === null, "un compañero ve el celular del líder");
+  assert(JSON.stringify(member.members.map((m) => m.semester)) === "[5,3,null]", JSON.stringify(member.members));
+});
 await check("estudiante3 rechaza", async () => expect(await accept("estudiante3", "rejection"), 200, 204));
 await check("estudiante3 (fuera del equipo) no ve el proyecto → 403/404", async () =>
   expect(await api("GET", `/projects/${project.id}`, { token: tok.estudiante3 }), 403, 404));
-await check("estudiante4 entra: el equipo llega al máximo (3)", async () => {
-  expect(await invite("estudiante1", creds.estudiante4.email), 200, 201);
+const candidates = (who, text) =>
+  api("GET", `/projects/${project.id}/invitation-candidates?search=${encodeURIComponent(text)}`, { token: tok[who] });
+await check("el líder busca por nombre y encuentra a estudiante4, sin su correo ni a los que ya están", async () => {
+  const found = expect(await candidates("estudiante1", "estudiante4"), 200);
+  const one = found.find((x) => x.id === creds.estudiante4.id);
+  assert(one && one.fullName === "Estudiante4 QA", JSON.stringify(found));
+  assert(!JSON.stringify(found).includes(creds.estudiante4.email), "la búsqueda entrega el correo completo");
+  const all = expect(await candidates("estudiante1", "estudiante"), 200);
+  assert(!all.some((x) => [creds.estudiante1.id, creds.estudiante2.id].includes(x.id)), "ofrece a quien ya está en el equipo");
+  assert(expect(await candidates("estudiante1", "es"), 200).length === 0, "busca con dos letras");
+});
+await check("solo el líder busca compañeros → 403/404", async () => {
+  expect(await candidates("estudiante2", "estudiante4"), 403);
+  expect(await candidates("estudiante3", "estudiante4"), 403, 404);
+});
+await check("estudiante4 entra, invitado por su cuenta y no por su correo: el equipo llega al máximo (3)", async () => {
+  expect(await api("POST", `/projects/${project.id}/invitations`, { token: tok.estudiante1, json: { userId: creds.estudiante4.id } }), 200, 201);
   expect(await accept("estudiante4", "acceptance"), 200, 204);
 });
 await check("invitar con el equipo lleno → 409", async () => expect(await invite("estudiante1", creds.estudiante3.email), 409));
@@ -263,9 +289,11 @@ await check("no-miembro no descarga el póster → 403/404", async () =>
   expect(await api("GET", `/files/${posterFileId}`, { token: tok.estudiante3, raw: true }), 403, 404));
 await check("docente del proyecto descarga el póster", async () =>
   expect(await api("GET", `/files/${posterFileId}`, { token: tok.docente1, raw: true }), 200));
-await check("foto de perfil PNG", async () => {
+await check("cambia la foto de perfil por otro PNG; quitarla no se puede → 405", async () => {
+  const before = expect(await api("GET", "/users/me", { token: tok.estudiante1 }), 200).photoId;
   const me = expect(await api("PUT", "/users/me/photo", { token: tok.estudiante1, form: multipartFile(PNG, "yo.png", "image/png") }), 200);
-  assert(me.photoId, "sin photoId");
+  assert(me.photoId && me.photoId !== before, "la foto no cambió");
+  expect(await api("DELETE", "/users/me/photo", { token: tok.estudiante1 }), 405);
 });
 
 section("6. Directorio y CSV");
@@ -275,6 +303,15 @@ await check("MACONDOLAB ve el proyecto con progreso 1/1", async () => {
   const p = list.items.find((x) => x.id === project.id);
   assert(p, "no aparece");
   assert(p.members === 3 && p.requiredDeliverables === 1 && p.deliveredDeliverables === 1, JSON.stringify(p));
+});
+await check("el listado acepta el orden por título; uno desconocido → 400", async () => {
+  expect(await api("GET", `/projects?size=200&sort=TITLE&editionId=${edition.id}`, { token: tok.macondolab }), 200);
+  expect(await api("GET", "/projects/export?sort=TITLE", { token: tok.macondolab, raw: true }), 200);
+  expect(await api("GET", "/projects?sort=CUALQUIERA", { token: tok.macondolab }), 400);
+});
+await check("la ficha trae el día en que cierran las entregas", async () => {
+  const p = expect(await api("GET", `/projects/${project.id}`, { token: tok.estudiante1 }), 200);
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(p.submissionClosesOn) && p.submissionOpen, JSON.stringify(p));
 });
 await check("docente1 (nombrado) lo ve", async () => {
   const list = expect(await api("GET", "/projects?size=200", { token: tok.docente1 }), 200);
@@ -381,6 +418,8 @@ await check("MACONDOLAB oculta las notas y quita a los jurados", async () => {
 });
 
 section("8. Limpieza (también prueba borrar)");
+await check("un integrante no se sale por su cuenta → 403", async () =>
+  expect(await api("DELETE", `/projects/${project.id}/members/${creds.estudiante4.id}`, { token: tok.estudiante4 }), 403));
 await check("líder saca a estudiante4", async () =>
   expect(await api("DELETE", `/projects/${project.id}/members/${creds.estudiante4.id}`, { token: tok.estudiante1 }), 200, 204));
 await check("un no-líder no borra el proyecto → 403", async () =>

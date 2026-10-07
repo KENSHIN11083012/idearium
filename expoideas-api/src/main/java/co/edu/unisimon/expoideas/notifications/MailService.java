@@ -1,5 +1,6 @@
 package co.edu.unisimon.expoideas.notifications;
 
+import co.edu.unisimon.expoideas.common.AccountAnonymizedEvent;
 import co.edu.unisimon.expoideas.common.ExpoideasProperties;
 import co.edu.unisimon.expoideas.common.Masked;
 import java.net.URI;
@@ -77,6 +78,11 @@ public class MailService {
      * @throws org.springframework.mail.MailException si el servidor rechaza el envío
      */
     public void send(String to, String subject, String body) {
+        if (to.endsWith(AccountAnonymizedEvent.ALIAS_DOMAIN)) {
+            // Una cuenta anonimizada sigue en su equipo, pero ya no hay a quién escribirle.
+            log.debug("\"{}\" no se envía: la cuenta destinataria fue anonimizada", subject);
+            return;
+        }
         JavaMailSender sender = sender();
         if (sender == null) {
             log.warn("Sin servidor de correo configurado: no se envía \"{}\" a {}", subject, Masked.email(to));

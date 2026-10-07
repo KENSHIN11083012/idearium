@@ -92,7 +92,7 @@ export async function createProject(studentKey, title) {
     token: await apiToken(studentKey),
     json: {
       editionId: edition.id, track: "INNPRENDE_I", title, summary: "Preparado por las pruebas de punta a punta.",
-      sectorId: sector.id, teacherId: creds.docente1.id,
+      sectorId: sector.id, teacherId: creds.docente1.id, semester: 5, phone: "3001234567",
     },
   });
   if (res.status >= 300) throw new Error(`No se pudo preparar el proyecto: ${res.status} ${JSON.stringify(res.body)}`);

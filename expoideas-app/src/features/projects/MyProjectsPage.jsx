@@ -5,23 +5,35 @@ import { toast } from 'sonner';
 import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/features/auth/useAuth';
 import { trackLabel } from '@/lib/tracks';
+import { SEMESTERS } from '@/lib/validation';
 import { PageContainer } from '@/components/layout/AppShell';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/feedback';
+import { Field } from '@/components/ui/field';
+import { NativeSelect } from '@/components/ui/native-select';
 import { useEditions } from '@/features/editions/queries';
 import { useAnswerInvitation, useMyInvitations, useMyProjects } from './queries';
+import { SubmissionDeadline } from './SubmissionDeadline';
 import { ProjectDialog } from './ProjectDialog';
 
 /** Invitación pendiente: quien la recibe acepta o rechaza desde aquí. */
 function InvitationCard({ invitation }) {
     const answer = useAnswerInvitation();
+    // Quien entra a un equipo dice el semestre que cursa: es de esa inscripción, no de la cuenta.
+    const [semester, setSemester] = useState('');
+    const [error, setError] = useState('');
 
     const respond = async (accept) => {
+        if (accept && !semester) {
+            setError('Selecciona el semestre que cursas para aceptar.');
+            return;
+        }
+        setError('');
         try {
-            await answer.mutateAsync({ id: invitation.id, accept });
+            await answer.mutateAsync({ id: invitation.id, accept, semester: accept ? Number(semester) : undefined });
             toast.success(accept ? `Ya eres del equipo de "${invitation.projectTitle}"` : 'Invitación rechazada');
         } catch (error) {
             toast.error(error.message);
@@ -37,13 +49,31 @@ function InvitationCard({ invitation }) {
                 <p className="font-semibold text-on-surface">{invitation.projectTitle}</p>
                 <p className="text-sm text-on-surface-variant">{invitation.leader} te invitó a su equipo.</p>
             </div>
-            <div className="flex gap-2">
-                <Button variant="outline" onClick={() => respond(false)} disabled={answer.isPending}>
-                    Rechazar
-                </Button>
-                <Button onClick={() => respond(true)} loading={answer.isPending}>
-                    Aceptar
-                </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <Field label="Semestre que cursas" error={error || undefined} className="sm:w-44">
+                    <NativeSelect
+                        value={semester}
+                        onChange={(event) => {
+                            setSemester(event.target.value);
+                            setError('');
+                        }}
+                    >
+                        <option value="">Selecciona</option>
+                        {SEMESTERS.map((option) => (
+                            <option key={option} value={String(option)}>
+                                {option}
+                            </option>
+                        ))}
+                    </NativeSelect>
+                </Field>
+                <div className="flex gap-2 sm:mt-6">
+                    <Button variant="outline" onClick={() => respond(false)} disabled={answer.isPending}>
+                        Rechazar
+                    </Button>
+                    <Button onClick={() => respond(true)} loading={answer.isPending}>
+                        Aceptar
+                    </Button>
+                </div>
             </div>
         </Card>
     );
@@ -78,6 +108,8 @@ function ProjectCard({ project }) {
                     <dd className="font-medium text-on-surface">{project.teacher}</dd>
                 </div>
             </dl>
+
+            <SubmissionDeadline project={project} />
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/50 pt-4">
                 <p className="flex items-center gap-2 text-sm text-on-surface-variant">

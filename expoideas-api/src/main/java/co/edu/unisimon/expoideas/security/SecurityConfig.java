@@ -86,8 +86,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Gestión de cuentas: MacondoLab y administradores; eliminar, solo el administrador.
+                        // Gestión de cuentas: MacondoLab y administradores; eliminar y anonimizar, que no
+                        // tienen vuelta atrás, solo el administrador.
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/users/*/anonymization")
                         .hasRole("ADMIN")
                         // El rastro de auditoría recoge también lo que hace MacondoLab, y el estado de la
                         // instalación es cosa de quien la opera: solo los lee el administrador.

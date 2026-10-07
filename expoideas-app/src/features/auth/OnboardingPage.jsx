@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Alert } from '@/components/ui/feedback';
 import { AffiliationFields } from '@/features/catalogs/AffiliationFields';
+import { ProfilePhoto } from '@/features/profile/ProfilePhoto';
 import { useProfile, useUpdateProfile } from '@/features/profile/queries';
 import { personalDataSchema, profileSchema } from '@/features/profile/schemas';
 import { accountApi } from './api';
@@ -227,6 +228,22 @@ function CompleteProfileStep({ onDone }) {
     );
 }
 
+/**
+ * La foto de perfil la llevan todas las cuentas. Se sube aquí mismo y se puede
+ * cambiar antes de seguir: lo que se ve es lo que verán los demás.
+ */
+function ProfilePhotoStep({ onDone }) {
+    const { user } = useAuth();
+    return (
+        <div className="flex flex-col gap-6">
+            <ProfilePhoto profile={user ?? {}} />
+            <Button type="button" size="lg" disabled={!user?.photoId} onClick={onDone} className="w-full">
+                Continuar <ArrowRight />
+            </Button>
+        </div>
+    );
+}
+
 /** Pasos que conoce la app, en el orden en que se piden (el mismo de la API). */
 const ONBOARDING_STEPS = {
     VERIFY_EMAIL: {
@@ -250,11 +267,16 @@ const ONBOARDING_STEPS = {
         description: 'Cuéntanos cómo te llamas y cuál es tu vínculo con la universidad. Así aparecerás en tus proyectos.',
         Step: CompleteProfileStep,
     },
+    PROFILE_PHOTO: {
+        title: 'Sube tu foto de perfil',
+        description: 'Una foto en la que se te reconozca. La verán tu equipo, tus profesores y los jurados.',
+        Step: ProfilePhotoStep,
+    },
 };
 
 /**
  * Primer ingreso de una cuenta con pasos pendientes (contraseña temporal,
- * autorización de datos, perfil incompleto). La API no deja hacer nada más
+ * autorización de datos, perfil incompleto, foto de perfil). La API no deja hacer nada más
  * hasta completarlos. Al terminar el último, la sesión queda sin pendientes y
  * la página lleva al inicio que corresponde al rol.
  */

@@ -2,6 +2,7 @@ package co.edu.unisimon.expoideas.auth;
 
 import static co.edu.unisimon.expoideas.users.OnboardingStep.CHANGE_PASSWORD;
 import static co.edu.unisimon.expoideas.users.OnboardingStep.DATA_CONSENT;
+import static co.edu.unisimon.expoideas.users.OnboardingStep.PROFILE_PHOTO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +56,7 @@ class AuthServiceTest {
         User newJudge = TestData.user(7, EMAIL, Role.JUDGE);
         newJudge.setMustChangePassword(true);
         newJudge.setDataConsent(false);
+        newJudge.setPhoto(null);
         UserPrincipal principal = new UserPrincipal(newJudge);
         when(authenticationManager.authenticate(any()))
                 .thenReturn(
@@ -68,7 +70,7 @@ class AuthServiceTest {
         assertThat(response.id()).isEqualTo(7);
         assertThat(response.role()).isEqualTo(Role.JUDGE);
         assertThat(response.photoId()).isNull();
-        assertThat(response.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT);
+        assertThat(response.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT, PROFILE_PHOTO);
         verify(attempts).recordSuccess(EMAIL);
     }
 

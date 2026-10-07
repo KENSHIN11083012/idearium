@@ -5,15 +5,18 @@ import { rules } from '@/lib/validation';
 export const projectSchema = z.object({
     editionId: z.string().min(1, 'Selecciona la edición'),
     track: z.string().min(1, 'Selecciona la cátedra'),
-    title: z.string().trim().min(1, 'Ingresa el título del proyecto').max(150, 'Máximo 150 caracteres'),
+    title: z.string().trim().min(1, 'Ingresa el título del proyecto de innovación').max(150, 'Máximo 150 caracteres'),
     summary: z.string().trim().min(1, 'Describe tu propuesta de valor').max(500, 'Máximo 500 caracteres'),
     sectorId: z.string().min(1, 'Selecciona el sector'),
     /** Solo en INNPRENDE II. Si el catálogo tiene tipos, la API lo exige y devuelve el error en el campo. */
     prototypeTypeId: z.string(),
     teacherId: z.string().min(1, 'Selecciona el profesor del grupo'),
+    /** Los dos son de quien inscribe, que queda como líder. */
+    semester: rules.semester(),
+    phone: rules.mobilePhone(),
 });
 
-/** Invitación a un compañero: la API exige que la cuenta exista. */
+/** Invitación a un compañero por su correo: la API exige que la cuenta exista. */
 export const invitationSchema = z.object({
     email: rules.institutionalEmail('Usa el correo institucional de tu compañero', 'Ingresa el correo'),
 });
@@ -27,6 +30,8 @@ export const toProjectRequest = (values) => ({
     sectorId: Number(values.sectorId),
     prototypeTypeId: values.prototypeTypeId ? Number(values.prototypeTypeId) : null,
     teacherId: Number(values.teacherId),
+    semester: Number(values.semester),
+    phone: values.phone,
 });
 
 /** Del proyecto que devuelve la API a los valores del formulario. */
@@ -38,6 +43,8 @@ export const toFormValues = (project) => ({
     sectorId: project ? String(project.sectorId) : '',
     prototypeTypeId: project?.prototypeTypeId ? String(project.prototypeTypeId) : '',
     teacherId: project ? String(project.teacherId) : '',
+    semester: String(project?.members.find((member) => member.teamRole === 'LEADER')?.semester ?? ''),
+    phone: project?.leaderPhone ?? '',
 });
 
 /** Resultado del proyecto al cerrar la cátedra. Espejo de ProjectResult en la API. */

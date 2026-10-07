@@ -117,6 +117,17 @@ public class ProjectPolicy {
         return !onlyInvited && canView(project, viewer);
     }
 
+    /**
+     * El celular del líder es para quien tiene que poder llamarlo: el profesor del
+     * grupo y la gestión, además del propio líder, que es quien lo corrige. El
+     * resto del equipo y los jurados no lo ven.
+     */
+    public boolean canSeeContact(Project project, User viewer) {
+        return project.getTeacher().getId().equals(viewer.getId())
+                || viewer.getRole().isManagement()
+                || project.memberOf(viewer).filter(ProjectMember::isLeader).isPresent();
+    }
+
     public void requireStudent(User user) {
         if (user.getRole() != Role.STUDENT) {
             throw new ForbiddenActionException("Solo los estudiantes inscriben proyectos");
@@ -128,6 +139,26 @@ public class ProjectPolicy {
         return project.memberOf(user)
                 .filter(ProjectMember::isLeader)
                 .orElseThrow(() -> new ForbiddenActionException("Solo el líder del proyecto puede hacer esto"));
+    }
+
+    /**
+     * Quién saca a alguien del equipo: el líder o la gestión. Un integrante no se
+     * sale ni se cambia de equipo por su cuenta (MacondoLab, 6 de octubre de 2026).
+     * Quien solo está invitado sí retira su invitación: todavía no está en el equipo.
+     *
+     * @throws ForbiddenActionException si quien lo pide no puede
+     */
+    public void requireCanRemove(Project project, User actor, ProjectMember target) {
+        boolean self = target.getUser().getId().equals(actor.getId());
+        if (self && !target.isAccepted()) {
+            return;
+        }
+        if (self) {
+            throw new ForbiddenActionException("Para salir del equipo o cambiarte a otro, pídeselo a MacondoLab");
+        }
+        if (!actor.getRole().isManagement()) {
+            requireLeader(project, actor);
+        }
     }
 
     /**

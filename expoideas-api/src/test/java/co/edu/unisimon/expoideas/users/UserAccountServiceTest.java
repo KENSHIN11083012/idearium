@@ -132,7 +132,8 @@ class UserAccountServiceTest {
             assertThat(created.lastName()).isNull();
             assertThat(created.campusId()).isNull();
             assertThat(created.facultyId()).isNull();
-            assertThat(created.pendingSteps()).containsExactly(OnboardingStep.COMPLETE_PROFILE);
+            assertThat(created.pendingSteps())
+                    .containsExactly(OnboardingStep.COMPLETE_PROFILE, OnboardingStep.PROFILE_PHOTO);
             verifyNoInteractions(campusRepository, facultyRepository, academicProgramRepository);
         }
 
@@ -151,7 +152,8 @@ class UserAccountServiceTest {
             assertThat(created.pendingRole()).isEqualTo(Role.TEACHER);
             assertThat(created.firstName()).isEqualTo("Carlos");
             assertThat(created.lastName()).isEqualTo("Mendoza");
-            assertThat(created.pendingSteps()).containsExactly(OnboardingStep.COMPLETE_PROFILE);
+            assertThat(created.pendingSteps())
+                    .containsExactly(OnboardingStep.COMPLETE_PROFILE, OnboardingStep.PROFILE_PHOTO);
         }
 
         @Test
@@ -161,7 +163,8 @@ class UserAccountServiceTest {
             UserResponse created = service.register(registration(EMAIL));
 
             assertThat(created.pendingSteps())
-                    .containsExactly(OnboardingStep.VERIFY_EMAIL, OnboardingStep.COMPLETE_PROFILE);
+                    .containsExactly(
+                            OnboardingStep.VERIFY_EMAIL, OnboardingStep.COMPLETE_PROFILE, OnboardingStep.PROFILE_PHOTO);
             verify(accountLinks).sendVerification(any(User.class));
         }
 
@@ -169,7 +172,8 @@ class UserAccountServiceTest {
         void withoutAMailServerThereIsNothingToVerify() {
             UserResponse created = service.register(registration(EMAIL));
 
-            assertThat(created.pendingSteps()).containsExactly(OnboardingStep.COMPLETE_PROFILE);
+            assertThat(created.pendingSteps())
+                    .containsExactly(OnboardingStep.COMPLETE_PROFILE, OnboardingStep.PROFILE_PHOTO);
             verify(accountLinks, never()).sendVerification(any());
         }
 
@@ -246,6 +250,7 @@ class UserAccountServiceTest {
 
         @Test
         void firstPhotoIsStoredAsAPublicImage() {
+            ana.setPhoto(null);
             when(fileService.store(image, FileFormat.IMAGES, FileVisibility.PUBLIC, ana))
                     .thenReturn(file("nueva"));
 
@@ -264,24 +269,6 @@ class UserAccountServiceTest {
             InOrder order = inOrder(fileService);
             order.verify(fileService).store(any(), any(), any(), any());
             order.verify(fileService).delete(previous);
-        }
-
-        @Test
-        void deletingThePhotoRemovesIt() {
-            StoredFile photo = file("actual");
-            ana.setPhoto(photo);
-
-            service.deletePhoto(EMAIL);
-
-            assertThat(ana.getPhoto()).isNull();
-            verify(fileService).delete(photo);
-        }
-
-        @Test
-        void deletingWithoutAPhotoDoesNothing() {
-            service.deletePhoto(EMAIL);
-
-            verify(fileService, never()).delete(any());
         }
 
         private static StoredFile file(String uuid) {

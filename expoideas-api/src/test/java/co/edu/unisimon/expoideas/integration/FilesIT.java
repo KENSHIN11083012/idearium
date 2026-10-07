@@ -62,17 +62,17 @@ class FilesIT extends IntegrationTest {
     }
 
     @Test
-    void deletingPhotoRemovesIt() {
+    void thePhotoIsMandatorySoItIsReplacedButNeverRemoved() {
         String token = loginAs(Role.STUDENT);
         String id = putFile(PHOTO, token, PART, "a.png", MediaType.IMAGE_PNG, png(100))
                 .expect(200)
                 .json("$.photoId");
 
-        delete(PHOTO, token).expect(204);
+        delete(PHOTO, token).expect(405);
 
-        get("/api/v1/files/" + id, null).expect(404);
-        assertThat(get("/api/v1/users/me", token).<String>json("$.photoId")).isNull();
-        assertThat(storedFileCount(id)).isZero();
+        get("/api/v1/files/" + id, null).expect(200);
+        assertThat(get("/api/v1/users/me", token).<String>json("$.photoId")).isEqualTo(id);
+        assertThat(storedFileCount(id)).isOne();
     }
 
     @Test

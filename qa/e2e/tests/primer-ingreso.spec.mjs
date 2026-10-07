@@ -1,4 +1,4 @@
-import { deleteUsersByEmail, expect, field, loginAs, path, stamp, test, uiLogin, uiLogout } from "../fixtures.mjs";
+import { deleteUsersByEmail, expect, field, loginAs, path, PNG, stamp, test, uiLogin, uiLogout } from "../fixtures.mjs";
 
 test.afterAll(() => deleteUsersByEmail(/^qa\.e2e\.jurado\./));
 
@@ -22,20 +22,24 @@ test("el ADMIN crea un jurado externo, este completa el primer ingreso y el ADMI
   await expect(page.getByRole("row").filter({ hasText: email })).toBeVisible();
   await uiLogout(page);
 
-  // 2. Primer ingreso: dos pasos.
+  // 2. Primer ingreso: tres pasos. La foto la llevan todos los roles, también un jurado externo.
   await uiLogin(page, email, temporal);
   await expect(page).toHaveURL(/primer-ingreso/);
-  await expect(page.getByText("Primer ingreso · Paso 1 de 2")).toBeVisible();
+  await expect(page.getByText("Primer ingreso · Paso 1 de 3")).toBeVisible();
   await page.getByLabel("Contraseña temporal").fill(temporal);
   await page.getByLabel(field("Nueva contraseña")).fill(definitiva);
   await page.getByLabel("Confirmar nueva contraseña").fill(definitiva);
   await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
-  await expect(page.getByText("Primer ingreso · Paso 2 de 2")).toBeVisible();
+  await expect(page.getByText("Primer ingreso · Paso 2 de 3")).toBeVisible();
   await page.getByRole("button", { name: "Aceptar y continuar" }).click();
   await expect(page.getByRole("alert")).toBeVisible(); // sin marcar la autorización no avanza
   await page.getByLabel(/Autorizo a la Universidad/).check();
   await page.getByRole("button", { name: "Aceptar y continuar" }).click();
+
+  await expect(page.getByText("Primer ingreso · Paso 3 de 3")).toBeVisible();
+  await page.getByLabel("Elegir foto de perfil").setInputFiles({ name: "yo.png", mimeType: "image/png", buffer: PNG });
+  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page).not.toHaveURL(/primer-ingreso/);
   await uiLogout(page);
 

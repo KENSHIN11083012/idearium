@@ -45,7 +45,7 @@ describe('Registro mínimo', () => {
         expect(screen.getByLabelText(/^Correo institucional/)).toBeInTheDocument();
         expect(screen.queryByLabelText(/Nombres/)).not.toBeInTheDocument();
         expect(screen.queryByLabelText(/Apellidos/)).not.toBeInTheDocument();
-        expect(screen.queryByLabelText(/Sede/)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/Campus/)).not.toBeInTheDocument();
         expect(screen.queryByLabelText(/Facultad/)).not.toBeInTheDocument();
         expect(screen.getByText(/Tu nombre y tu facultad los completas al entrar/)).toBeInTheDocument();
     });

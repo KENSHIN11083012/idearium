@@ -41,7 +41,7 @@ export const hasRole = (role, allowed) => {
 
 export const isManagement = (role) => MANAGEMENT_ROLES.includes(role);
 
-/** Si el rol declara sede y facultad. Espejo de Role#requiresAffiliation. */
+/** Si el rol declara campus y facultad. Espejo de Role#requiresAffiliation. */
 export const requiresAffiliation = (role) => role === ROLES.TEACHER || role === ROLES.STUDENT;
 
 /**

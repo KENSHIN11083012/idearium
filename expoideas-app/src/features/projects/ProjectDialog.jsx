@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { byName } from '@/lib/text';
 import { TRACK_LIST, trackLabel } from '@/lib/tracks';
-import { handleFormError } from '@/lib/validation';
+import { SEMESTERS, handleFormError } from '@/lib/validation';
 import { CATALOG_PATHS } from '@/features/catalogs/api';
 import { useCatalogItems } from '@/features/catalogs/queries';
 import { useEditions } from '@/features/editions/queries';
@@ -114,7 +114,7 @@ export function ProjectDialog({ project, onClose }) {
                         </div>
                     )}
 
-                    <Field label="Título del proyecto" error={errors.title?.message} required>
+                    <Field label="Título del proyecto de innovación" error={errors.title?.message} required>
                         <Input autoComplete="off" autoFocus={!editing} {...register('title')} />
                     </Field>
 
@@ -172,6 +172,34 @@ export function ProjectDialog({ project, onClose }) {
                             </NativeSelect>
                         </Field>
                     </div>
+
+                    <fieldset className="grid gap-4 rounded-lg border border-outline-variant/70 p-4 sm:grid-cols-2">
+                        <legend className="px-1 font-heading text-sm font-semibold text-on-surface">Tus datos como líder</legend>
+                        <Field label="Semestre que cursas" error={errors.semester?.message} required>
+                            <NativeSelect {...register('semester')}>
+                                <option value="">Selecciona el semestre</option>
+                                {SEMESTERS.map((semester) => (
+                                    <option key={semester} value={String(semester)}>
+                                        {semester}
+                                    </option>
+                                ))}
+                            </NativeSelect>
+                        </Field>
+                        <Field
+                            label="Tu celular"
+                            error={errors.phone?.message}
+                            hint="Lo ven tu profesor y MacondoLab, para contactar al equipo."
+                            required
+                        >
+                            <Input
+                                type="tel"
+                                inputMode="numeric"
+                                autoComplete="tel-national"
+                                placeholder="3001234567"
+                                {...register('phone')}
+                            />
+                        </Field>
+                    </fieldset>
                 </>
             )}
         </FormDialog>

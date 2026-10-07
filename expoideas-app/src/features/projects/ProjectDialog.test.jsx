@@ -49,6 +49,9 @@ describe('Inscribir un proyecto', () => {
         await userEvent.type(dialog.getByLabelText(/Propuesta de valor/), 'Sensores para detectar plagas.');
         await userEvent.selectOptions(dialog.getByLabelText(/Sector/), '3');
         await userEvent.selectOptions(dialog.getByLabelText(/Profesor/), '7');
+        await userEvent.selectOptions(dialog.getByLabelText(/Semestre que cursas/), '5');
+        // Como lo escribe la gente: con espacios y el indicativo. A la API le llegan los diez dígitos.
+        await userEvent.type(dialog.getByLabelText(/Tu celular/), '+57 300 123 4567');
         await userEvent.click(dialog.getByRole('button', { name: 'Inscribir' }));
 
         await waitFor(() =>
@@ -62,9 +65,21 @@ describe('Inscribir un proyecto', () => {
                     sectorId: 3,
                     prototypeTypeId: null,
                     teacherId: 7,
+                    semester: 5,
+                    phone: '3001234567',
                 },
             }),
         );
+    });
+
+    it('no acepta un celular que no tenga diez dígitos', async () => {
+        const dialog = renderDialog();
+
+        await userEvent.type(dialog.getByLabelText(/Tu celular/), '300 123');
+        await userEvent.click(dialog.getByRole('button', { name: 'Inscribir' }));
+
+        expect(await dialog.findByText('Escribe un celular de 10 dígitos, por ejemplo 3001234567')).toBeInTheDocument();
+        expect(save.mutateAsync).not.toHaveBeenCalled();
     });
 
     it('solo ofrece las ediciones con inscripciones abiertas', () => {
@@ -90,8 +105,10 @@ describe('Inscribir un proyecto', () => {
         expect(errors).toEqual(
             expect.arrayContaining([
                 'Selecciona la edición',
-                'Ingresa el título del proyecto',
+                'Ingresa el título del proyecto de innovación',
                 'Selecciona el profesor del grupo',
+                'Selecciona el semestre que cursas',
+                'Ingresa tu celular',
             ]),
         );
         expect(save.mutateAsync).not.toHaveBeenCalled();
@@ -104,6 +121,9 @@ describe('Editar un proyecto', () => {
 
         expect(dialog.getByLabelText(/Título/)).toHaveValue('BioSensor');
         expect(dialog.getByLabelText(/Sector/)).toHaveValue('3');
+        // Los datos del líder son los que dio al inscribir, y los puede corregir.
+        expect(dialog.getByLabelText(/Semestre que cursas/)).toHaveValue('5');
+        expect(dialog.getByLabelText(/Tu celular/)).toHaveValue('3001234567');
         expect(dialog.queryByLabelText(/Cátedra/)).not.toBeInTheDocument();
         expect(dialog.queryByLabelText(/Edición/)).not.toBeInTheDocument();
     });
@@ -144,6 +164,8 @@ describe('Tipo de prototipo', () => {
         await userEvent.selectOptions(dialog.getByLabelText(/Sector/), '3');
         await userEvent.selectOptions(dialog.getByLabelText(/Tipo de prototipo/), '2');
         await userEvent.selectOptions(dialog.getByLabelText(/Profesor/), '7');
+        await userEvent.selectOptions(dialog.getByLabelText(/Semestre que cursas/), '8');
+        await userEvent.type(dialog.getByLabelText(/Tu celular/), '3001234567');
         await userEvent.click(dialog.getByRole('button', { name: 'Inscribir' }));
 
         await waitFor(() =>

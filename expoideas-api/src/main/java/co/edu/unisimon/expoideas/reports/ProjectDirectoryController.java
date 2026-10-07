@@ -28,7 +28,7 @@ public class ProjectDirectoryController {
 
     private final ProjectDirectoryService directoryService;
 
-    /** Por páginas, de la inscripción más reciente a la más antigua. */
+    /** Por páginas. Sin {@code sort}, de la inscripción más reciente a la más antigua. */
     @GetMapping
     public PageResponse<ProjectSummaryResponse> list(
             Authentication authentication,
@@ -38,16 +38,18 @@ public class ProjectDirectoryController {
             @RequestParam(required = false) Integer sectorId,
             @RequestParam(required = false) ProjectResult result,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "RECENT") ProjectSort sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + PageResponse.DEFAULT_SIZE) int size) {
         return directoryService.list(
                 authentication.getName(),
                 new ProjectFilter(editionId, track, teacherId, sectorId, result, search),
+                sort,
                 page,
                 size);
     }
 
-    /** El mismo listado en CSV, con los filtros que estén puestos. */
+    /** El mismo listado en CSV, con los filtros y el orden que estén puestos. */
     @GetMapping(path = "/export", produces = "text/csv")
     public ResponseEntity<byte[]> export(
             Authentication authentication,
@@ -56,9 +58,12 @@ public class ProjectDirectoryController {
             @RequestParam(required = false) Integer teacherId,
             @RequestParam(required = false) Integer sectorId,
             @RequestParam(required = false) ProjectResult result,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "RECENT") ProjectSort sort) {
         String csv = directoryService.export(
-                authentication.getName(), new ProjectFilter(editionId, track, teacherId, sectorId, result, search));
+                authentication.getName(),
+                new ProjectFilter(editionId, track, teacherId, sectorId, result, search),
+                sort);
         String filename = directoryService.exportFilename();
 
         return ResponseEntity.ok()

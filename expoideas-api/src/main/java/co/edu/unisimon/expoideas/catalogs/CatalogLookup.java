@@ -24,7 +24,7 @@ public class CatalogLookup {
     public Campus campus(Integer id) {
         return campusRepository
                 .findById(id)
-                .orElseThrow(() -> new NoSuchElementException("No existe una sede con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("No existe un campus con ID: " + id));
     }
 
     /** @throws NoSuchElementException si no existe */

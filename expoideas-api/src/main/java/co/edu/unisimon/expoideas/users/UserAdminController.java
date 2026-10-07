@@ -74,6 +74,16 @@ public class UserAdminController {
         return managementService.reactivate(authentication.getName(), id);
     }
 
+    /**
+     * Le quita a la cuenta el nombre, el correo, la foto y el acceso, y deja su
+     * historial en pie. No tiene vuelta atrás. Solo administradores (lo exige
+     * SecurityConfig); 409 si ya estaba anonimizada.
+     */
+    @PostMapping("/{id}/anonymization")
+    public UserResponse anonymize(Authentication authentication, @PathVariable Integer id) {
+        return managementService.anonymize(authentication.getName(), id);
+    }
+
     /** Solo administradores. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

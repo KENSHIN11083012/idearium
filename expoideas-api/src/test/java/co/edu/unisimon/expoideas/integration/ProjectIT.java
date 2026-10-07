@@ -192,7 +192,10 @@ class ProjectIT extends IntegrationTest {
         assertThat(titles).containsExactly("Proyecto de prueba");
         int invitationId = invitations.json("$[0].id");
 
-        Response accepted = post("/api/v1/invitations/" + invitationId + "/acceptance", team.memberToken(), null)
+        Response accepted = post(
+                        "/api/v1/invitations/" + invitationId + "/acceptance",
+                        team.memberToken(),
+                        Map.of("semester", 4))
                 .expect(200);
         List<String> acceptedStatuses = accepted.json("$.members[*].status");
         assertThat(acceptedStatuses).containsExactly("ACCEPTED", "ACCEPTED");
@@ -242,7 +245,7 @@ class ProjectIT extends IntegrationTest {
         invite(firstProject, first, first.memberEmail());
         int invitationId =
                 get("/api/v1/invitations", first.memberToken()).expect(200).json("$[0].id");
-        post("/api/v1/invitations/" + invitationId + "/acceptance", first.memberToken(), null)
+        post("/api/v1/invitations/" + invitationId + "/acceptance", first.memberToken(), Map.of("semester", 4))
                 .expect(200);
 
         Team second = newTeam();
@@ -279,7 +282,7 @@ class ProjectIT extends IntegrationTest {
         String student = createAccount(Role.STUDENT);
         String token = login(student, PASSWORD);
         List<Integer> invitations = inviteToTwoProjects(student, token);
-        post("/api/v1/invitations/" + invitations.get(0) + "/acceptance", token, null)
+        post("/api/v1/invitations/" + invitations.get(0) + "/acceptance", token, Map.of("semester", 4))
                 .expect(200);
 
         // Sin pasar por las comprobaciones de la API, como una petición que llegó en el mismo instante.
@@ -296,8 +299,10 @@ class ProjectIT extends IntegrationTest {
             List<Integer> invitations = inviteToTwoProjects(student, token);
 
             List<Response> answers = atTheSameTime(
-                    () -> post("/api/v1/invitations/" + invitations.get(0) + "/acceptance", token, null),
-                    () -> post("/api/v1/invitations/" + invitations.get(1) + "/acceptance", token, null));
+                    () -> post(
+                            "/api/v1/invitations/" + invitations.get(0) + "/acceptance", token, Map.of("semester", 4)),
+                    () -> post(
+                            "/api/v1/invitations/" + invitations.get(1) + "/acceptance", token, Map.of("semester", 4)));
 
             assertThat(statusesOf(answers)).containsExactlyInAnyOrder(200, 409);
             assertThat(refusedOf(answers).json("$.detail").toString()).contains("Ya tienes un proyecto");
@@ -373,7 +378,7 @@ class ProjectIT extends IntegrationTest {
         invite(projectId, team, team.memberEmail());
         int invitationId =
                 get("/api/v1/invitations", team.memberToken()).expect(200).json("$[0].id");
-        post("/api/v1/invitations/" + invitationId + "/acceptance", team.memberToken(), null)
+        post("/api/v1/invitations/" + invitationId + "/acceptance", team.memberToken(), Map.of("semester", 4))
                 .expect(200);
 
         Map<String, Object> changed = projectBody(team);
@@ -405,27 +410,222 @@ class ProjectIT extends IntegrationTest {
     }
 
     @Test
-    void aMemberLeavesButTheLeaderCannot() {
+    void nobodyLeavesOnTheirOwnTheLeaderOrManagementRemoveAndItLeavesATrace() {
+        Team team = newTeam();
+        int projectId = createProject(team);
+        String members = "/api/v1/projects/" + projectId + "/members/";
+        int memberId = idOf(team.memberEmail());
+        int leaderId = idOf(team.leaderEmail());
+        joinTeam(projectId, team);
+
+        // Ni el líder ni el integrante se salen por su cuenta.
+        delete(members + leaderId, team.leaderToken()).expect(403);
+        String detail =
+                delete(members + memberId, team.memberToken()).expect(403).json("$.detail");
+        assertThat(detail).contains("pídeselo a MacondoLab");
+        assertThat(teamRoles(projectId, team)).containsExactly("LEADER", "MEMBER");
+
+        // La gestión lo retira; al líder, tampoco ella.
+        String macondolabEmail = createAccount(Role.MACONDOLAB);
+        String macondolab = login(macondolabEmail, PASSWORD);
+        delete(members + leaderId, macondolab).expect(403);
+        delete(members + memberId, macondolab).expect(204);
+        assertThat(teamRoles(projectId, team)).containsExactly("LEADER");
+
+        // Y el líder, a quien vuelva a entrar.
+        joinTeam(projectId, team);
+        delete(members + memberId, team.leaderToken()).expect(204);
+        assertThat(teamRoles(projectId, team)).containsExactly("LEADER");
+
+        // Las dos salidas quedan en el rastro, con quién las hizo. De la más reciente a la más antigua.
+        List<Map<String, Object>> trail = removalsOf(projectId);
+        assertThat(trail).extracting(row -> row.get("actorEmail")).containsExactly(team.leaderEmail(), macondolabEmail);
+        assertThat(trail.getFirst())
+                .containsEntry("actionLabel", "Integrante retirado del equipo")
+                .containsEntry("targetType", "PROJECT");
+        assertThat(trail.getFirst().get("detail")).asString().contains(team.memberEmail());
+    }
+
+    @Test
+    void whoIsOnlyInvitedWithdrawsTheInvitationWithoutATrace() {
         Team team = newTeam();
         int projectId = createProject(team);
         invite(projectId, team, team.memberEmail());
-        int invitationId =
-                get("/api/v1/invitations", team.memberToken()).expect(200).json("$[0].id");
-        post("/api/v1/invitations/" + invitationId + "/acceptance", team.memberToken(), null)
-                .expect(200);
 
-        int memberId = idOf(team.memberEmail());
-        int leaderId = idOf(team.leaderEmail());
-
-        delete("/api/v1/projects/" + projectId + "/members/" + leaderId, team.leaderToken())
-                .expect(403);
-        delete("/api/v1/projects/" + projectId + "/members/" + memberId, team.memberToken())
+        delete("/api/v1/projects/" + projectId + "/members/" + idOf(team.memberEmail()), team.memberToken())
                 .expect(204);
 
-        List<String> roles = get("/api/v1/projects/" + projectId, team.leaderToken())
+        assertThat(teamRoles(projectId, team)).containsExactly("LEADER");
+        assertThat(removalsOf(projectId)).isEmpty();
+    }
+
+    @Test
+    void theLeaderFindsClassmatesByNameAndInvitesThemWithoutKnowingTheirEmail() {
+        Team team = newTeam();
+        int projectId = createProject(team);
+        String candidates = "/api/v1/projects/" + projectId + "/invitation-candidates?search=";
+        // Un apellido que nadie más tiene, para no depender de lo que dejen otras pruebas.
+        String surname = "Zuñiga" + System.nanoTime();
+        String mauro = named(createAccount(Role.STUDENT), "Mauro", surname);
+        String maura = named(createAccount(Role.STUDENT), "Maura", surname);
+        // No se ofrecen: no es estudiante, está suspendida, o ya es del equipo.
+        named(team.teacherEmail(), "Mauricio", surname);
+        String suspended = named(createAccount(Role.STUDENT), "Mauren", surname);
+        jdbc.update("update users set enabled = false where email = ?", suspended);
+        named(team.leaderEmail(), "Mauricia", surname);
+
+        // Sin mayúsculas ni tildes, y en orden alfabético.
+        Response found = get(candidates + "zuniga" + surname.substring(6), team.leaderToken())
+                .expect(200);
+        assertThat(found.<List<String>>json("$[*].fullName")).containsExactly("Maura " + surname, "Mauro " + surname);
+        assertThat(found.<Integer>json("$[1].id")).isEqualTo(idOf(mauro));
+        // Lo justo para reconocerlo: de dónde es, y el correo sin poder leerlo entero.
+        assertThat(found.<String>json("$[1].faculty")).isNotBlank();
+        assertThat(found.<String>json("$[1].email")).isEqualTo(mauro.charAt(0) + "***@unisimon.edu.co");
+        assertThat(found.body()).doesNotContain(mauro, maura);
+        assertThat(get(candidates + "Mauro " + surname, team.leaderToken())
+                        .expect(200)
+                        .<List<String>>json("$[*].fullName"))
+                .containsExactly("Mauro " + surname);
+
+        // Con menos de tres letras no se busca: saldría media cátedra.
+        assertThat(get(candidates + "Ma", team.leaderToken()).expect(200).<List<Object>>json("$"))
+                .isEmpty();
+
+        // Solo busca el líder de ese proyecto.
+        get(candidates + surname, team.memberToken()).expect(404);
+        get(candidates + surname, loginAs(Role.MACONDOLAB)).expect(403);
+
+        // Lo invita por su cuenta, sin escribir el correo, y deja de salir en la búsqueda.
+        String invitations = "/api/v1/projects/" + projectId + "/invitations";
+        post(invitations, team.leaderToken(), Map.of("userId", idOf(mauro))).expect(201);
+        assertThat(get("/api/v1/invitations", login(mauro, PASSWORD))
+                        .expect(200)
+                        .<List<Integer>>json("$[*].projectId"))
+                .containsExactly(projectId);
+        assertThat(get(candidates + surname, team.leaderToken()).expect(200).<List<String>>json("$[*].fullName"))
+                .containsExactly("Maura " + surname);
+
+        // Las reglas de siempre siguen valiendo por este camino, y sin decir a quién no se invita a nadie.
+        Response teacher = post(invitations, team.leaderToken(), Map.of("userId", idOf(team.teacherEmail())))
+                .expect(400);
+        assertThat(teacher.<String>json("$.fields.email")).isEqualTo("Solo puedes invitar a estudiantes");
+        assertThat(post(invitations, team.leaderToken(), Map.of()).expect(400).<String>json("$.fields.email"))
+                .contains("elige a tu compañero o escribe su correo");
+    }
+
+    @Test
+    void whoRegistersSaysTheirSemesterAndPhoneAndWhoJoinsTheirSemester() {
+        Team team = newTeam();
+        String projects = "/api/v1/projects";
+
+        // Sin semestre o sin celular no hay inscripción, y cada error va a su campo.
+        Map<String, Object> incomplete = projectBody(team);
+        incomplete.remove("semester");
+        incomplete.remove("phone");
+        Response missing = post(projects, team.leaderToken(), incomplete).expect(400);
+        assertThat(missing.<String>json("$.fields.semester")).contains("del 1 al 12");
+        assertThat(missing.<String>json("$.fields.phone")).isEqualTo("El celular es obligatorio");
+
+        Map<String, Object> wrong = projectBody(team);
+        wrong.put("semester", 13);
+        wrong.put("phone", "300 123");
+        Response invalid = post(projects, team.leaderToken(), wrong).expect(400);
+        assertThat(invalid.<String>json("$.fields.semester")).contains("del 1 al 12");
+        assertThat(invalid.<String>json("$.fields.phone")).contains("10 dígitos");
+
+        Map<String, Object> body = projectBody(team);
+        body.put("semester", 7);
+        body.put("phone", "3105550101");
+        Response created = post(projects, team.leaderToken(), body).expect(201);
+        int projectId = created.json("$.id");
+        String project = projects + "/" + projectId;
+        assertThat(created.<List<Integer>>json("$.members[*].semester")).containsExactly(7);
+        assertThat(created.<String>json("$.leaderPhone")).isEqualTo("3105550101");
+
+        // Quien entra dice su semestre al aceptar; mientras no responda, no tiene.
+        invite(projectId, team, team.memberEmail());
+        assertThat(get(project, team.leaderToken()).expect(200).<List<Integer>>json("$.members[*].semester"))
+                .containsExactly(7, null);
+        int invitationId =
+                get("/api/v1/invitations", team.memberToken()).expect(200).json("$[0].id");
+        String acceptance = "/api/v1/invitations/" + invitationId + "/acceptance";
+        assertThat(post(acceptance, team.memberToken(), Map.of()).expect(400).<String>json("$.fields.semester"))
+                .contains("del 1 al 12");
+        post(acceptance, team.memberToken(), Map.of("semester", 0)).expect(400);
+        Response accepted =
+                post(acceptance, team.memberToken(), Map.of("semester", 3)).expect(200);
+        assertThat(accepted.<List<Integer>>json("$.members[*].semester")).containsExactly(7, 3);
+
+        // El celular del líder lo ven él, el profesor del grupo y la gestión. Su compañero y un jurado, no.
+        String jurorEmail = createAccount(Role.JUDGE);
+        post(project + "/jurors", loginAs(Role.MACONDOLAB), Map.of("email", jurorEmail))
+                .expect(201);
+        String juror = login(jurorEmail, PASSWORD);
+        assertThat(accepted.<Object>json("$.leaderPhone")).isNull();
+        assertThat(get(project, team.memberToken()).expect(200).<Object>json("$.leaderPhone"))
+                .isNull();
+        assertThat(get(project, juror).expect(200).<Object>json("$.leaderPhone"))
+                .isNull();
+        assertThat(get("/api/v1/jury/projects", juror).expect(200).body()).doesNotContain("3105550101");
+        assertThat(get(project, login(team.teacherEmail(), PASSWORD))
+                        .expect(200)
+                        .<String>json("$.leaderPhone"))
+                .isEqualTo("3105550101");
+        assertThat(get(project, loginAs(Role.MACONDOLAB)).expect(200).<String>json("$.leaderPhone"))
+                .isEqualTo("3105550101");
+        assertThat(get("/api/v1/projects/mine", team.memberToken()).expect(200).body())
+                .doesNotContain("3105550101");
+
+        // El líder corrige los dos datos al editar el proyecto.
+        body.put("semester", 8);
+        body.put("phone", "3205550102");
+        Response edited = put(project, team.leaderToken(), body).expect(200);
+        assertThat(edited.<List<Integer>>json("$.members[*].semester")).containsExactly(8, 3);
+        assertThat(edited.<String>json("$.leaderPhone")).isEqualTo("3205550102");
+
+        // Y salen en el listado y en el CSV de la gestión, que es para lo que se piden.
+        String macondolab = loginAs(Role.MACONDOLAB);
+        Response summary = get("/api/v1/projects?teacherId=" + idOf(team.teacherEmail()), macondolab)
+                .expect(200);
+        assertThat(summary.<Integer>json("$.items[0].leaderSemester")).isEqualTo(8);
+        assertThat(summary.<String>json("$.items[0].leaderPhone")).isEqualTo("3205550102");
+        String csv = get("/api/v1/projects/export?teacherId=" + idOf(team.teacherEmail()), macondolab)
+                .expect(200)
+                .body();
+        assertThat(csv).contains("Líder;Semestre del líder;Celular del líder;").contains(";8;3205550102;");
+    }
+
+    /** Le pone ese nombre a la cuenta y devuelve su correo. */
+    private String named(String email, String firstName, String lastName) {
+        jdbc.update("update users set first_name = ?, last_name = ? where email = ?", firstName, lastName, email);
+        return email;
+    }
+
+    /** El integrante del equipo recibe la invitación del líder y la acepta. */
+    private void joinTeam(int projectId, Team team) {
+        invite(projectId, team, team.memberEmail());
+        int invitationId =
+                get("/api/v1/invitations", team.memberToken()).expect(200).json("$[0].id");
+        post("/api/v1/invitations/" + invitationId + "/acceptance", team.memberToken(), Map.of("semester", 4))
+                .expect(200);
+    }
+
+    private List<String> teamRoles(int projectId, Team team) {
+        return get("/api/v1/projects/" + projectId, team.leaderToken())
                 .expect(200)
                 .json("$.members[*].teamRole");
-        assertThat(roles).containsExactly("LEADER");
+    }
+
+    /** Lo que el rastro guarda de integrantes retirados de ese proyecto, de lo más reciente a lo más antiguo. */
+    private List<Map<String, Object>> removalsOf(int projectId) {
+        List<Map<String, Object>> rows = get(
+                        "/api/v1/admin/audit?action=TEAM_MEMBER_REMOVED&size=100", loginAs(Role.ADMIN))
+                .expect(200)
+                .json("$.items");
+        return rows.stream()
+                .filter(row -> Integer.valueOf(projectId).equals(row.get("targetId")))
+                .toList();
     }
 
     @Test
@@ -455,6 +655,8 @@ class ProjectIT extends IntegrationTest {
         Team team = newTeam();
         Map<String, Object> body = projectBody(team);
         body.put("teacherId", idOf(team.leaderEmail()));
+        body.put("semester", 5);
+        body.put("phone", "3001234567");
 
         Response rejected = post("/api/v1/projects", team.leaderToken(), body).expect(400);
         assertThat(rejected.json("$.fields.teacherId").toString()).contains("profesor");
@@ -520,6 +722,8 @@ class ProjectIT extends IntegrationTest {
         body.put("summary", "Una propuesta de valor de prueba para la inscripción.");
         body.put("sectorId", firstSectorId());
         body.put("teacherId", idOf(team.teacherEmail()));
+        body.put("semester", 5);
+        body.put("phone", "3001234567");
         return body;
     }
 

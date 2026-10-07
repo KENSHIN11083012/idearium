@@ -26,7 +26,8 @@ class AccountLinkIT extends IntegrationTest {
         String email = uniqueEmail("verifica");
 
         Response created = register(email).expect(201);
-        assertThat(created.<List<String>>json("$.pendingSteps")).containsExactly("VERIFY_EMAIL", "COMPLETE_PROFILE");
+        assertThat(created.<List<String>>json("$.pendingSteps"))
+                .containsExactly("VERIFY_EMAIL", "COMPLETE_PROFILE", "PROFILE_PHOTO");
 
         // Entra, pero mientras no verifique solo puede resolver su primer ingreso.
         String token = login(email, PASSWORD);
@@ -39,7 +40,7 @@ class AccountLinkIT extends IntegrationTest {
 
         post("/api/v1/auth/email-verification", null, Map.of("token", link)).expect(204);
         Response me = get("/api/v1/users/me", token).expect(200);
-        assertThat(me.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE");
+        assertThat(me.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE", "PROFILE_PHOTO");
 
         // El enlace sirve una sola vez.
         Response again = post("/api/v1/auth/email-verification", null, Map.of("token", link))

@@ -92,7 +92,7 @@ export function AffiliationDialog({ user, onClose }) {
     return (
         <FormDialog
             title="Editar adscripción"
-            description={`Sede, facultad y programa de ${user.firstName} ${user.lastName}.`}
+            description={`Campus, facultad y programa de ${user.firstName} ${user.lastName}.`}
             onClose={onClose}
             onSubmit={handleSubmit(submit)}
             error={errors.root?.message}

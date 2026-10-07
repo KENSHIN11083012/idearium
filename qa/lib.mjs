@@ -71,6 +71,12 @@ export function sql(statement) {
   ).trim();
 }
 
+/** Un PNG de un píxel: la API reconoce el formato por el contenido, no por la extensión. */
+export const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 export function multipartFile(bytes, filename, type) {
   const form = new FormData();
   form.append("file", new Blob([bytes], { type }), filename);

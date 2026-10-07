@@ -3,6 +3,7 @@ package co.edu.unisimon.expoideas.users;
 import co.edu.unisimon.expoideas.catalogs.AcademicProgram;
 import co.edu.unisimon.expoideas.catalogs.Campus;
 import co.edu.unisimon.expoideas.catalogs.Faculty;
+import co.edu.unisimon.expoideas.common.AccountAnonymizedEvent;
 import co.edu.unisimon.expoideas.files.StoredFile;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
@@ -137,6 +138,16 @@ public class User {
 
     private LocalDateTime dataConsentAt;
 
+    /** La versión del texto que aceptó ({@link DataConsent#VERSION} de ese día). Nula si no ha autorizado. */
+    @Column(length = 20)
+    private String dataConsentVersion;
+
+    /**
+     * Cuándo un administrador la anonimizó: ya no tiene nombre, correo real, foto
+     * ni acceso, pero la fila sigue para no romper el historial. Nula si no lo está.
+     */
+    private LocalDateTime anonymizedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private Campus campus;
 
@@ -159,18 +170,24 @@ public class User {
     /** Lo que se muestra de una cuenta que todavía no puso su nombre. */
     public static final String NAMELESS = "Sin nombre";
 
+    /** Lo que se muestra de una cuenta anonimizada, en vez del nombre que tuvo. */
+    public static final String ANONYMIZED = "Cuenta anonimizada";
+
     /**
      * Nombre para mostrar a los demás: "Ana María Pérez Gómez". Si aún no completó
      * su perfil, {@value #NAMELESS}: nunca un trozo de su correo, que se enseñaría
      * en listas donde el correo no tiene por qué verse.
      */
     public String fullName() {
+        if (isAnonymized()) {
+            return ANONYMIZED;
+        }
         return hasName() ? firstName + " " + lastName : NAMELESS;
     }
 
     /** El nombre para saludarla en un correo que va a ella; null si aún no lo puso. */
     public String nameForGreeting() {
-        return hasName() ? fullName() : null;
+        return hasName() && !isAnonymized() ? fullName() : null;
     }
 
     /** Lo que la cuenta debe resolver antes de usar la plataforma, en el orden en que se pide. */
@@ -189,6 +206,10 @@ public class User {
         if (!hasName() || (role.requiresAffiliation() && faculty == null)) {
             steps.add(OnboardingStep.COMPLETE_PROFILE);
         }
+        // Va al final: la foto se sube con otra petición, cuando la cuenta ya tiene nombre.
+        if (photo == null) {
+            steps.add(OnboardingStep.PROFILE_PHOTO);
+        }
         return steps;
     }
 
@@ -196,12 +217,48 @@ public class User {
         return firstName != null && !firstName.isBlank() && lastName != null && !lastName.isBlank();
     }
 
-    /** Deja constancia de la autorización de datos; si ya estaba, conserva la fecha original. */
-    public void giveDataConsent(LocalDateTime now) {
+    /**
+     * Deja constancia de la autorización de datos y de qué versión del texto
+     * aceptó; si ya estaba, conserva la fecha y la versión originales.
+     */
+    public void giveDataConsent(LocalDateTime now, String version) {
         if (!dataConsent) {
             dataConsent = true;
             dataConsentAt = now;
+            dataConsentVersion = version;
         }
+    }
+
+    public boolean isAnonymized() {
+        return anonymizedAt != null;
+    }
+
+    /**
+     * Le quita a la cuenta lo que dice de quién es: el nombre, el correo y todo
+     * lo que servía para entrar. No toca el rol ni la adscripción, que por sí
+     * solos no identifican a nadie, ni lo que hizo en la plataforma, que sigue
+     * en pie a nombre de «{@value #ANONYMIZED}». La foto la quita quien llama,
+     * porque es un archivo. No tiene vuelta atrás.
+     *
+     * @param unusableHash el hash de una contraseña que nadie conoce
+     */
+    public void anonymize(String unusableHash, LocalDateTime now) {
+        email = anonymizedEmail(id);
+        firstName = null;
+        lastName = null;
+        passwordHash = unusableHash;
+        mustChangePassword = false;
+        emailVerificationPending = false;
+        emailVerifiedAt = null;
+        pendingRole = null;
+        clearLoginFailures();
+        suspend();
+        anonymizedAt = now;
+    }
+
+    /** El correo sin dueño que identifica a la cuenta de ese id una vez anonimizada. */
+    public static String anonymizedEmail(Integer id) {
+        return "anonimo-" + id + AccountAnonymizedEvent.ALIAS_DOMAIN;
     }
 
     /**

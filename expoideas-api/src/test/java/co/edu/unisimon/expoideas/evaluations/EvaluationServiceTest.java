@@ -38,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /** Quién califica, qué se le exige a una evaluación y cómo sale la nota. */
@@ -369,7 +370,7 @@ class EvaluationServiceTest {
         when(other.getId()).thenReturn(11);
         when(other.getTitle()).thenReturn("Riego inteligente");
         when(project.getTitle()).thenReturn("BioSensor");
-        when(projectRepository.search(5, Track.INNPRENDE_I, null, null, null, null))
+        when(projectRepository.search(5, Track.INNPRENDE_I, null, null, null, null, Sort.unsorted()))
                 .thenReturn(List.of(project, other));
         when(evaluatorRule.evaluatorsByProject(List.of(project, other)))
                 .thenReturn(Map.of(PROJECT, List.of(marta, pedro), 11, List.of(marta)));
@@ -390,7 +391,7 @@ class EvaluationServiceTest {
 
     @Test
     void withNothingPendingNobodyGetsMail() {
-        when(projectRepository.search(5, Track.INNPRENDE_I, null, null, null, null))
+        when(projectRepository.search(5, Track.INNPRENDE_I, null, null, null, null, Sort.unsorted()))
                 .thenReturn(List.of(project));
         when(evaluatorRule.evaluatorsByProject(List.of(project))).thenReturn(Map.of(PROJECT, List.of(marta)));
         when(evaluationRepository.findByProjectIdInOrderByCreatedAtAsc(List.of(PROJECT)))

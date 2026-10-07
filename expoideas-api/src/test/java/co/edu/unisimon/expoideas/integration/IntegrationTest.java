@@ -6,6 +6,9 @@ import co.edu.unisimon.expoideas.catalogs.Campus;
 import co.edu.unisimon.expoideas.catalogs.CampusRepository;
 import co.edu.unisimon.expoideas.catalogs.Faculty;
 import co.edu.unisimon.expoideas.catalogs.FacultyRepository;
+import co.edu.unisimon.expoideas.files.FileFormat;
+import co.edu.unisimon.expoideas.files.FileService;
+import co.edu.unisimon.expoideas.files.FileVisibility;
 import co.edu.unisimon.expoideas.support.TestData;
 import co.edu.unisimon.expoideas.users.Role;
 import co.edu.unisimon.expoideas.users.User;
@@ -49,11 +52,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.test.web.servlet.client.RestTestClient;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.testcontainers.mysql.MySQLContainer;
@@ -192,6 +197,12 @@ abstract class IntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private FileService fileService;
+
+    @Autowired
+    private TransactionTemplate transactions;
+
     private RestTestClient client;
 
     @BeforeEach
@@ -209,9 +220,9 @@ abstract class IntegrationTest {
     }
 
     /**
-     * Crea una cuenta al día (sin pasos de primer ingreso) directamente en la BD,
-     * como haría el procedimiento del primer administrador: con nombre y, si el
-     * rol la lleva, con sede y facultad. Devuelve el correo.
+     * Crea una cuenta al día (sin pasos de primer ingreso) directamente en la BD:
+     * con nombre, con foto y, si el rol la lleva, con campus y facultad. Devuelve
+     * el correo.
      */
     protected String createAccount(Role role) {
         String email = uniqueEmail(role.name().toLowerCase());
@@ -226,8 +237,25 @@ abstract class IntegrationTest {
         if (role.requiresAffiliation()) {
             user.campus(anyCampus()).faculty(anyFaculty());
         }
-        userRepository.save(user.build());
+        givePhoto(userRepository.save(user.build()));
         return email;
+    }
+
+    /** Sube la foto de perfil de quien tiene la sesión: el último paso del primer ingreso. */
+    protected Response uploadPhoto(String token) {
+        return putFile("/api/v1/users/me/photo", token, FileService.FIELD, "yo.png", MediaType.IMAGE_PNG, TestData.PNG);
+    }
+
+    /** La foto de perfil es obligatoria: sin ella la cuenta tendría un paso pendiente. */
+    protected void givePhoto(User user) {
+        transactions.executeWithoutResult(status -> {
+            User account = userRepository.findById(user.getId()).orElseThrow();
+            account.setPhoto(fileService.store(
+                    new MockMultipartFile(FileService.FIELD, "foto.png", "image/png", TestData.PNG),
+                    FileFormat.IMAGES,
+                    FileVisibility.PUBLIC,
+                    account));
+        });
     }
 
     private Campus anyCampus() {
@@ -284,7 +312,7 @@ abstract class IntegrationTest {
 
     // ── Catálogos ───────────────────────────────────────────────────────────
 
-    /** Id de una de las sedes que siembran las migraciones. */
+    /** Id de uno de los campus que siembran las migraciones. */
     protected int campusId() {
         return get("/api/v1/campuses", null).expect(200).json("$[0].id");
     }

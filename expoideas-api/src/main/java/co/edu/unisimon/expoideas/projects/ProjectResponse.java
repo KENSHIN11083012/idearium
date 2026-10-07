@@ -7,9 +7,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Un proyecto con su equipo. Lleva los límites del grupo y si siguen abiertas la
- * inscripción (equipo y datos) y las entregas, para que el cliente sepa qué
- * ofrecer sin consultar la edición.
+ * Un proyecto con su equipo. Lleva los límites del grupo, si siguen abiertas la
+ * inscripción (equipo y datos) y las entregas, y el día en que cierra cada una,
+ * para que el cliente sepa qué ofrecer y cuánto falta sin consultar la edición.
+ *
+ * @param leaderPhone el celular de contacto del líder, solo para quien puede verlo
+ *     ({@link ProjectPolicy#canSeeContact}); para los demás, null
  */
 public record ProjectResponse(
         Integer id,
@@ -26,13 +29,22 @@ public record ProjectResponse(
         String teacher,
         boolean registrationOpen,
         boolean submissionOpen,
+        LocalDate registrationClosesOn,
+        LocalDate submissionClosesOn,
         int minMembers,
         int maxMembers,
         List<MemberResponse> members,
+        String leaderPhone,
         ProjectResult result,
         LocalDateTime createdAt) {
 
+    /** Sin el celular del líder: es lo que ve quien no tiene por qué llamarlo, como un jurado. */
     public static ProjectResponse from(Project project, LocalDate today) {
+        return from(project, today, false);
+    }
+
+    /** @param withContact si lleva el celular del líder */
+    public static ProjectResponse from(Project project, LocalDate today, boolean withContact) {
         EditionTrack settings = project.trackSettings();
         return new ProjectResponse(
                 project.getId(),
@@ -49,9 +61,12 @@ public record ProjectResponse(
                 project.getTeacher().fullName(),
                 project.getEdition().isRegistrationOpenOn(today),
                 project.getEdition().isSubmissionOpenOn(today),
+                project.getEdition().getRegistrationClosesOn(),
+                project.getEdition().getSubmissionClosesOn(),
                 settings.getMinMembers(),
                 settings.getMaxMembers(),
                 project.getMembers().stream().map(MemberResponse::from).toList(),
+                withContact ? project.leader().getPhone() : null,
                 project.getResult(),
                 project.getCreatedAt());
     }

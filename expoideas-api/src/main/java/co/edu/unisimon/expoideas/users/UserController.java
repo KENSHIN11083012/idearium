@@ -2,11 +2,16 @@ package co.edu.unisimon.expoideas.users;
 
 import co.edu.unisimon.expoideas.files.FileService;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController {
 
     private final UserAccountService accountService;
+    private final PersonalDataService personalData;
 
     @GetMapping
     public UserResponse getProfile(Authentication authentication) {
@@ -38,16 +44,14 @@ public class UserController {
         return accountService.updateProfile(authentication.getName(), request);
     }
 
-    /** Sube o reemplaza la foto de perfil: JPG, PNG o WEBP de hasta 5 MB. */
+    /**
+     * Sube o reemplaza la foto de perfil: JPG, PNG o WEBP de hasta 5 MB. Es
+     * obligatoria (paso {@code PROFILE_PHOTO} del primer ingreso), así que se
+     * cambia por otra pero no se quita.
+     */
     @PutMapping(path = "/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserResponse updatePhoto(Authentication authentication, @RequestPart(FileService.FIELD) MultipartFile file) {
         return accountService.updatePhoto(authentication.getName(), file);
-    }
-
-    @DeleteMapping("/photo")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePhoto(Authentication authentication) {
-        accountService.deletePhoto(authentication.getName());
     }
 
     /**
@@ -58,6 +62,25 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void giveDataConsent(Authentication authentication, @Valid @RequestBody DataConsentRequest request) {
         accountService.giveDataConsent(authentication.getName());
+    }
+
+    /**
+     * Todo lo que la plataforma guarda de quien tiene la sesión, en un archivo JSON
+     * para descargar (Ley 1581 de 2012: derecho a conocer los propios datos).
+     */
+    @GetMapping("/data-export")
+    public ResponseEntity<Map<String, Object>> exportData(Authentication authentication) {
+        Map<String, Object> export = personalData.export(authentication.getName());
+        LocalDate day = ((LocalDateTime) export.get("generatedAt")).toLocalDate();
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename("mis-datos-idearium-" + day + ".json")
+                                .build()
+                                .toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(export);
     }
 
     /**

@@ -19,9 +19,10 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * Mientras la cuenta tenga pasos de primer ingreso sin completar (contraseña
- * temporal, autorización de datos, perfil incompleto), solo puede resolverlos:
- * ver y completar su perfil, cambiar su contraseña y autorizar el tratamiento
- * de datos. Cualquier otra petición a la API responde 403 con {@code pendingSteps}.
+ * temporal, autorización de datos, perfil incompleto, foto de perfil), solo
+ * puede resolverlos: ver y completar su perfil, subir su foto, cambiar su
+ * contraseña y autorizar el tratamiento de datos. Cualquier otra petición a la
+ * API responde 403 con {@code pendingSteps}.
  *
  * <p>Corre después de JwtAuthenticationFilter y antes de las reglas de
  * autorización: aplica igual para todos los roles. Como ese filtro, no es un
@@ -40,6 +41,7 @@ public class OnboardingFilter extends OncePerRequestFilter {
                 path.matcher("/api/v1/auth/**"),
                 path.matcher(HttpMethod.GET, "/api/v1/users/me"),
                 path.matcher(HttpMethod.PUT, "/api/v1/users/me"),
+                path.matcher(HttpMethod.PUT, "/api/v1/users/me/photo"),
                 path.matcher(HttpMethod.PUT, "/api/v1/users/me/password"),
                 path.matcher(HttpMethod.PUT, "/api/v1/users/me/data-consent")));
         for (String read : publicReads) {

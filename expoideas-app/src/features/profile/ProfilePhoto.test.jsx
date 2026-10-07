@@ -9,7 +9,7 @@ import { profileApi } from './api';
 import { useProfile } from './queries';
 
 vi.mock('@/features/auth/useAuth', () => ({ useAuth: vi.fn(() => ({ updateUser: vi.fn() })) }));
-vi.mock('./api', () => ({ profileApi: { get: vi.fn(), update: vi.fn(), uploadPhoto: vi.fn(), deletePhoto: vi.fn() } }));
+vi.mock('./api', () => ({ profileApi: { get: vi.fn(), update: vi.fn(), uploadPhoto: vi.fn() } }));
 
 const PHOTO_ID = '0b0f3f7e-8c1a-4c55-9d3e-2f1a6b7c8d9e';
 
@@ -89,14 +89,10 @@ describe('Foto de perfil', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('Formato no permitido. Usa un archivo JPG, PNG o WEBP.');
     });
 
-    it('quita la foto', async () => {
-        const user = userEvent.setup();
-        profileApi.deletePhoto.mockResolvedValue(null);
+    it('con foto solo ofrece cambiarla: es obligatoria y no se quita', async () => {
         renderPhoto({ firstName: 'Ana', lastName: 'Pérez', photoId: PHOTO_ID });
 
-        await user.click(await screen.findByRole('button', { name: /Quitar/ }));
-
-        expect(profileApi.deletePhoto).toHaveBeenCalled();
-        expect(await screen.findByText('AP')).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: /Cambiar foto/ })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Quitar/ })).not.toBeInTheDocument();
     });
 });

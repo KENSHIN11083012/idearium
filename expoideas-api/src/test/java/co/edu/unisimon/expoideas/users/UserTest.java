@@ -3,9 +3,11 @@ package co.edu.unisimon.expoideas.users;
 import static co.edu.unisimon.expoideas.users.OnboardingStep.CHANGE_PASSWORD;
 import static co.edu.unisimon.expoideas.users.OnboardingStep.COMPLETE_PROFILE;
 import static co.edu.unisimon.expoideas.users.OnboardingStep.DATA_CONSENT;
+import static co.edu.unisimon.expoideas.users.OnboardingStep.PROFILE_PHOTO;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import co.edu.unisimon.expoideas.catalogs.Faculty;
+import co.edu.unisimon.expoideas.files.StoredFile;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,7 +16,7 @@ class UserTest {
 
     private static final String EMAIL = "ana.perez@unisimon.edu.co";
 
-    /** Cuenta con todo resuelto: nombre, adscripción y autorización de datos. */
+    /** Cuenta con todo resuelto: nombre, adscripción, autorización de datos y foto. */
     private static User.UserBuilder complete(Role role) {
         return User.builder()
                 .email(EMAIL)
@@ -22,7 +24,8 @@ class UserTest {
                 .lastName("Pérez")
                 .role(role)
                 .faculty(new Faculty(1, "Ingeniería"))
-                .dataConsent(true);
+                .dataConsent(true)
+                .photo(StoredFile.builder().uuid("foto").build());
     }
 
     @Test
@@ -56,11 +59,46 @@ class UserTest {
         User user = User.builder().build();
 
         LocalDateTime first = LocalDateTime.of(2026, 9, 1, 10, 0);
-        user.giveDataConsent(first);
-        user.giveDataConsent(first.plusDays(1));
+        user.giveDataConsent(first, "1");
+        user.giveDataConsent(first.plusDays(1), "2");
 
         assertThat(user.isDataConsent()).isTrue();
         assertThat(user.getDataConsentAt()).isEqualTo(first);
+        // Queda la versión del texto que aceptó, no la que haya después.
+        assertThat(user.getDataConsentVersion()).isEqualTo("1");
+    }
+
+    @Test
+    void anAnonymizedAccountKeepsNothingThatSaysWhoseItWas() {
+        User user = complete(Role.TEACHER)
+                .id(57)
+                .email("carlos@unisimon.edu.co")
+                .pendingRole(Role.JUDGE)
+                .emailVerifiedAt(LocalDateTime.of(2026, 9, 1, 10, 0))
+                .failedLogins(3)
+                .build();
+        int sessions = user.getTokenVersion();
+        LocalDateTime now = LocalDateTime.of(2027, 2, 1, 8, 0);
+
+        user.anonymize("hash-que-nadie-conoce", now);
+
+        assertThat(user.isAnonymized()).isTrue();
+        assertThat(user.getAnonymizedAt()).isEqualTo(now);
+        assertThat(user.getEmail()).isEqualTo("anonimo-57@anonimo.invalid");
+        assertThat(user.getFirstName()).isNull();
+        assertThat(user.getLastName()).isNull();
+        assertThat(user.fullName()).isEqualTo("Cuenta anonimizada");
+        assertThat(user.nameForGreeting()).isNull();
+        assertThat(user.getPasswordHash()).isEqualTo("hash-que-nadie-conoce");
+        assertThat(user.getEmailVerifiedAt()).isNull();
+        assertThat(user.getPendingRole()).isNull();
+        // Sin acceso: suspendida y con las sesiones que tuviera cerradas.
+        assertThat(user.isEnabled()).isFalse();
+        assertThat(user.getTokenVersion()).isGreaterThan(sessions);
+        assertThat(user.hasLoginFailures()).isFalse();
+        // Lo que no identifica a nadie se queda: sirve para las cuentas de la cátedra.
+        assertThat(user.getRole()).isEqualTo(Role.TEACHER);
+        assertThat(user.getFaculty()).isNotNull();
     }
 
     @Test
@@ -118,7 +156,7 @@ class UserTest {
         void registeredAccountMustCompleteItsProfile() {
             User user = User.builder().email(EMAIL).dataConsent(true).build();
 
-            assertThat(user.pendingSteps()).containsExactly(COMPLETE_PROFILE);
+            assertThat(user.pendingSteps()).containsExactly(COMPLETE_PROFILE, PROFILE_PHOTO);
         }
 
         @Test
@@ -154,7 +192,35 @@ class UserTest {
                     .mustChangePassword(true)
                     .build();
 
-            assertThat(user.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT, COMPLETE_PROFILE);
+            assertThat(user.pendingSteps())
+                    .containsExactly(CHANGE_PASSWORD, DATA_CONSENT, COMPLETE_PROFILE, PROFILE_PHOTO);
+        }
+    }
+
+    @Nested
+    class ProfilePhoto {
+
+        @Test
+        void everyAccountNeedsOneWhateverItsRole() {
+            for (Role role : Role.values()) {
+                assertThat(complete(role).photo(null).build().pendingSteps())
+                        .as("sin foto, %s", role)
+                        .containsExactly(PROFILE_PHOTO);
+                assertThat(complete(role).build().pendingSteps())
+                        .as("con foto, %s", role)
+                        .isEmpty();
+            }
+        }
+
+        @Test
+        void itIsTheLastStep() {
+            User user = complete(Role.JUDGE)
+                    .photo(null)
+                    .mustChangePassword(true)
+                    .dataConsent(false)
+                    .build();
+
+            assertThat(user.pendingSteps()).containsExactly(CHANGE_PASSWORD, DATA_CONSENT, PROFILE_PHOTO);
         }
     }
 

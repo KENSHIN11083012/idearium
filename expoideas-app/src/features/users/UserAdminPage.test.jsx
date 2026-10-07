@@ -330,7 +330,7 @@ describe('Nueva cuenta', () => {
         expect(dialog.getByText('Debe terminar en @unisimon.edu.co')).toBeInTheDocument();
     });
 
-    it('a un profesor le exige correo institucional, sede y facultad', async () => {
+    it('a un profesor le exige correo institucional, campus y facultad', async () => {
         const user = userEvent.setup();
         const dialog = await openDialog(user);
 
@@ -341,7 +341,7 @@ describe('Nueva cuenta', () => {
         await dialog.findAllByRole('alert');
         expect(dialog.getAllByRole('alert').map((alert) => alert.textContent)).toEqual([
             'Usa un correo @unisimon.edu.co; solo los jurados pueden tener uno externo',
-            'Selecciona la sede',
+            'Selecciona el campus',
             'Selecciona la facultad',
         ]);
         expect(createUser.mutateAsync).not.toHaveBeenCalled();
@@ -372,7 +372,7 @@ describe('Nueva cuenta', () => {
 
         await user.selectOptions(dialog.getByLabelText(/^Rol/), 'TEACHER');
         await fill(dialog, user, { email: 'pedro@unisimon.edu.co' });
-        await user.selectOptions(dialog.getByLabelText(/^Sede/), '1');
+        await user.selectOptions(dialog.getByLabelText(/^Campus/), '1');
         await user.selectOptions(dialog.getByLabelText(/^Facultad/), '2');
         await user.click(dialog.getByRole('button', { name: 'Crear cuenta' }));
 

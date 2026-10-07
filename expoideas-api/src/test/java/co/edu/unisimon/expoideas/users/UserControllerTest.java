@@ -11,13 +11,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import co.edu.unisimon.expoideas.common.InvalidFieldsException;
 import co.edu.unisimon.expoideas.support.SecuredWebMvcTest;
 import co.edu.unisimon.expoideas.support.TestData;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -43,6 +47,9 @@ class UserControllerTest {
     @MockitoBean
     private UserAccountService accountService;
 
+    @MockitoBean
+    private PersonalDataService personalData;
+
     // ── Sesión ──────────────────────────────────────────────────────────────
 
     @Test
@@ -55,6 +62,35 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.detail").value("Debes iniciar sesión para acceder a este recurso"));
 
         verifyNoInteractions(accountService);
+    }
+
+    // ── Mis datos ───────────────────────────────────────────────────────────
+
+    @Test
+    void theOwnDataComesAsAFileToDownloadAndOnlyForTheSessionAccount() throws Exception {
+        Map<String, Object> export = new LinkedHashMap<>();
+        export.put("generatedAt", LocalDateTime.of(2026, 11, 20, 9, 30));
+        export.put("teams", List.of(Map.of("project", "BioSensor")));
+        when(personalData.export(EMAIL)).thenReturn(export);
+
+        mockMvc.perform(get("/api/v1/users/me/data-export"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                "Content-Disposition", "attachment; filename=\"mis-datos-idearium-2026-11-20.json\""))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.generatedAt").value("2026-11-20T09:30:00"))
+                .andExpect(jsonPath("$.teams[0].project").value("BioSensor"));
+
+        // No hay parámetro con el que pedir los datos de otra persona.
+        verify(personalData).export(EMAIL);
+    }
+
+    @Test
+    @WithAnonymousUser
+    void theOwnDataNeedsASession() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me/data-export")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(personalData);
     }
 
     // ── Perfil ──────────────────────────────────────────────────────────────
@@ -221,10 +257,10 @@ class UserControllerTest {
     }
 
     @Test
-    void deletePhotoIs204() throws Exception {
-        mockMvc.perform(delete("/api/v1/users/me/photo")).andExpect(status().isNoContent());
+    void thePhotoIsMandatorySoThereIsNoWayToRemoveIt() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/me/photo")).andExpect(status().isMethodNotAllowed());
 
-        verify(accountService).deletePhoto(EMAIL);
+        verifyNoInteractions(accountService);
     }
 
     private static UserResponse response(int id, String photoId) {
@@ -244,6 +280,7 @@ class UserControllerTest {
                 null,
                 List.of(),
                 false,
-                null);
+                null,
+                false);
     }
 }

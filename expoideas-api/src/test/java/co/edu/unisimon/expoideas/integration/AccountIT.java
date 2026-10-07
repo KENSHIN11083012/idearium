@@ -27,31 +27,39 @@ class AccountIT extends IntegrationTest {
         Response created = register(email).expect(201);
         assertThat(created.<String>json("$.role")).isEqualTo("STUDENT");
         assertThat(created.<String>json("$.firstName")).isNull();
-        assertThat(created.<List<String>>json("$.pendingSteps")).containsExactly("VERIFY_EMAIL", "COMPLETE_PROFILE");
+        assertThat(created.<List<String>>json("$.pendingSteps"))
+                .containsExactly("VERIFY_EMAIL", "COMPLETE_PROFILE", "PROFILE_PHOTO");
         // Lo primero es demostrar que el correo es suyo, con el enlace que le llegó.
         verifyEmail(email);
 
         Response login = post("/api/v1/auth/login", null, Map.of("email", email, "password", PASSWORD))
                 .expect(200);
-        assertThat(login.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE");
+        assertThat(login.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE", "PROFILE_PHOTO");
         String token = login.json("$.token");
 
-        // Hasta completar el perfil solo puede verlo y completarlo.
+        // Hasta terminar el primer ingreso solo puede ver su perfil y resolver lo que le falta.
         get("/api/v1/users/me", token).expect(200);
-        Response blocked = delete("/api/v1/users/me/photo", token).expect(403);
-        assertThat(blocked.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE");
+        Response blocked = get("/api/v1/projects/mine", token).expect(403);
+        assertThat(blocked.<List<String>>json("$.pendingSteps")).containsExactly("COMPLETE_PROFILE", "PROFILE_PHOTO");
 
-        // El nombre solo no basta: un estudiante declara sede y facultad.
+        // El nombre solo no basta: un estudiante declara campus y facultad.
         Response missing = put("/api/v1/users/me", token, Map.of("firstName", "Ana", "lastName", "Pérez"))
                 .expect(400);
         assertThat(missing.<String>json("$.fields.campusId")).isNotBlank();
         assertThat(missing.<String>json("$.fields.facultyId")).isNotBlank();
 
         Response completed = completeProfile(token, campus, faculty, program).expect(200);
-        assertThat(completed.<List<String>>json("$.pendingSteps")).isEmpty();
+        assertThat(completed.<List<String>>json("$.pendingSteps")).containsExactly("PROFILE_PHOTO");
+
+        // Con el perfil completo todavía falta la foto, que es obligatoria.
+        Response withoutPhoto = get("/api/v1/projects/mine", token).expect(403);
+        assertThat(withoutPhoto.<List<String>>json("$.pendingSteps")).containsExactly("PROFILE_PHOTO");
+        Response withPhoto = uploadPhoto(token).expect(200);
+        assertThat(withPhoto.<String>json("$.photoId")).isNotBlank();
+        assertThat(withPhoto.<List<String>>json("$.pendingSteps")).isEmpty();
 
         // Con el mismo token, la cuenta ya usa la plataforma.
-        delete("/api/v1/users/me/photo", token).expect(204);
+        get("/api/v1/projects/mine", token).expect(200);
 
         Response again = post("/api/v1/auth/login", null, Map.of("email", email, "password", PASSWORD))
                 .expect(200);
@@ -251,7 +259,11 @@ class AccountIT extends IntegrationTest {
         String token = login(email, PASSWORD);
         get("/api/v1/users/me", token).expect(200);
 
-        userRepository.delete(userRepository.findByEmail(email).orElseThrow());
+        // La cuenta desaparece por debajo de la API, con su foto: el token sigue firmado pero ya no es de nadie.
+        int id = idOf(email);
+        jdbc.update("update users set photo_id = null where id = ?", id);
+        jdbc.update("delete from files where owner_id = ?", id);
+        jdbc.update("delete from users where id = ?", id);
 
         get("/api/v1/users/me", token).expect(401);
     }

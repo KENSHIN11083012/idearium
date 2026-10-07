@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -64,8 +65,8 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
     List<Project> findWithTeamByIdIn(Collection<Integer> ids);
 
     /**
-     * Todos los proyectos que cumplen los filtros, de la inscripción más reciente a
-     * la más antigua: para exportar. Un filtro en null no filtra.
+     * Todos los proyectos que cumplen los filtros, en el orden que pida quien
+     * llama: para exportar. Un filtro en null no filtra.
      */
     @EntityGraph(attributePaths = {"edition", "sector", "prototypeType", "teacher", "members", "members.user"})
     @Query("""
@@ -76,7 +77,6 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
               and (:sectorId is null or p.sector.id = :sectorId)
               and (:result is null or p.result = :result)
               and (:search is null or lower(p.title) like lower(concat('%', :search, '%')))
-            order by p.createdAt desc
             """)
     List<Project> search(
             @Param("editionId") Integer editionId,
@@ -84,10 +84,15 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
             @Param("teacherId") Integer teacherId,
             @Param("sectorId") Integer sectorId,
             @Param("result") ProjectResult result,
-            @Param("search") String search);
+            @Param("search") String search,
+            Sort sort);
 
     /** Si esa cuenta es el docente de algún proyecto. */
     boolean existsByTeacherId(Integer teacherId);
+
+    /** Los proyectos que esa cuenta tiene a cargo como profesor, con su edición. */
+    @EntityGraph(attributePaths = "edition")
+    List<Project> findByTeacherIdOrderByCreatedAtDesc(Integer teacherId);
 
     /** Si esa cuenta está en el equipo de algún proyecto, invitada o aceptada. */
     @Query("select count(m) > 0 from ProjectMember m where m.user.id = :userId")

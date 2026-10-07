@@ -5,7 +5,7 @@ import { CircleCheck, CircleDashed, Download, FileText, Link2, Plus, Trash2, Upl
 import { toast } from 'sonner';
 import { downloadFile, validateSize } from '@/lib/files';
 import { handleFormError } from '@/lib/validation';
-import { formatDay, today } from '@/features/editions/status';
+import { formatDay, timeLeft, today } from '@/features/editions/status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -260,6 +260,7 @@ function DeliverableGroup({ group, project, isMember, onRemove }) {
                     {type.closesOn && (
                         <Badge variant={open ? 'lime' : 'outline'}>
                             {open ? 'Cierra el' : 'Cerró el'} {formatDay(type.closesOn)}
+                            {open && timeLeft(type.closesOn) && ` · ${timeLeft(type.closesOn).toLowerCase()}`}
                         </Badge>
                     )}
                 </div>

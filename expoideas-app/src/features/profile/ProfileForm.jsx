@@ -57,7 +57,7 @@ export function ProfileForm({ profile }) {
         <>
             {withAffiliation && profile.facultyId == null && (
                 <Alert variant="info" title="Completa tu vínculo con la universidad">
-                    Indica tu sede y facultad (y tu programa, si tienes uno) para que tu perfil quede completo.
+                    Indica tu campus y tu facultad (y tu programa, si tienes uno) para que tu perfil quede completo.
                 </Alert>
             )}
 
@@ -86,7 +86,7 @@ export function ProfileForm({ profile }) {
                         <>
                             <CardHeader className="border-t border-outline-variant/50">
                                 <CardTitle as="h3">Adscripción académica</CardTitle>
-                                <CardDescription>Tu sede, tu facultad y, si aplica, tu programa.</CardDescription>
+                                <CardDescription>Tu campus, tu facultad y, si aplica, tu programa.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <AffiliationFields form={{ ...form, errors }} />

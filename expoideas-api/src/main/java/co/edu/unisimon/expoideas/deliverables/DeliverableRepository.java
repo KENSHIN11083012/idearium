@@ -14,6 +14,10 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, Intege
 
     int countByProjectIdAndTypeId(Integer projectId, Integer typeId);
 
+    /** Lo que subió esa cuenta, con el proyecto, el tipo y el archivo de cada entrega. */
+    @EntityGraph(attributePaths = {"project", "type", "file"})
+    List<Deliverable> findByUploadedByIdOrderByUploadedAtAsc(Integer userId);
+
     /** Si ya hay archivos subidos para ese entregable: entonces no se puede borrar. */
     boolean existsByTypeId(Integer typeId);
 

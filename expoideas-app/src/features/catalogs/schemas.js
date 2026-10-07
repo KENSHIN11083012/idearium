@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** Sedes, facultades, categorías y keywords (CatalogItemRequest). */
+/** Campus, facultades, categorías y keywords (CatalogItemRequest). */
 export const catalogItemSchema = z.object({
     name: z.string().trim().min(1, 'Ingresa un nombre').max(100, 'Máximo 100 caracteres'),
 });

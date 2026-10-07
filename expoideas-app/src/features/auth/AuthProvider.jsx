@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }) => {
         [pendingSteps, savePendingSteps],
     );
 
-    /** Actualiza nombre o foto (photoId null la quita). */
+    /** Actualiza nombre o foto. */
     const updateUser = useCallback(
         (changes) => {
             const updated = { ...profile, ...changes };

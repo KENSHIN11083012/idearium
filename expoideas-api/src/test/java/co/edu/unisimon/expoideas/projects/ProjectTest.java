@@ -32,15 +32,19 @@ class ProjectTest {
     }
 
     @Test
-    void acceptingAnInvitationLeavesItsDate() {
+    void acceptingAnInvitationLeavesItsDateAndTheSemesterDeclared() {
         Project project = project();
         ProjectMember invitation = project.addMember(account(2), MemberRole.MEMBER, MembershipStatus.INVITED, NOW);
         assertThat(invitation.getRespondedAt()).isNull();
+        assertThat(invitation.getSemester()).isNull();
 
-        invitation.accept(NOW);
+        invitation.accept(NOW, 6);
 
         assertThat(invitation.isAccepted()).isTrue();
         assertThat(invitation.getRespondedAt()).isEqualTo(NOW);
+        assertThat(invitation.getSemester()).isEqualTo(6);
+        // El celular es solo del líder.
+        assertThat(invitation.getPhone()).isNull();
     }
 
     @Test

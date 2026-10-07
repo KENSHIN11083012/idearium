@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -65,7 +66,17 @@ public class ProjectController {
         return projectService.setResult(id, authentication.getName(), request);
     }
 
-    /** Invita a un compañero por su correo. */
+    /**
+     * Estudiantes que el líder puede invitar, buscados por su nombre: como mucho
+     * diez, y ninguno con menos de tres letras. Solo para el líder.
+     */
+    @GetMapping("/{id}/invitation-candidates")
+    public List<InvitationCandidateResponse> invitationCandidates(
+            @PathVariable Integer id, @RequestParam(defaultValue = "") String search, Authentication authentication) {
+        return teamService.candidates(id, authentication.getName(), search);
+    }
+
+    /** Invita a un compañero: por su correo, o por su cuenta si se eligió en la búsqueda. */
     @PostMapping("/{id}/invitations")
     @ResponseStatus(HttpStatus.CREATED)
     public ProjectResponse invite(
@@ -73,7 +84,7 @@ public class ProjectController {
         return teamService.invite(id, authentication.getName(), request);
     }
 
-    /** El líder saca a un integrante o cancela una invitación; cualquiera puede salirse. */
+    /** El líder o la gestión sacan a un integrante; quien solo está invitado retira su invitación. */
     @DeleteMapping("/{id}/members/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeMember(@PathVariable Integer id, @PathVariable Integer userId, Authentication authentication) {

@@ -79,8 +79,20 @@ export const project = {
     teacher: 'Carlos Mendoza',
     registrationOpen: true,
     submissionOpen: true,
+    registrationClosesOn: '2026-11-14',
+    submissionClosesOn: '2026-11-28',
     minMembers: 2,
     maxMembers: 5,
-    members: [{ userId: 1, fullName: 'Ana María Pérez', email: 'ana@unisimon.edu.co', teamRole: 'LEADER', status: 'ACCEPTED' }],
+    members: [
+        {
+            userId: 1,
+            fullName: 'Ana María Pérez',
+            email: 'ana@unisimon.edu.co',
+            teamRole: 'LEADER',
+            status: 'ACCEPTED',
+            semester: 5,
+        },
+    ],
+    leaderPhone: '3001234567',
     createdAt: '2026-11-04T09:00:00',
 };

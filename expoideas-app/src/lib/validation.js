@@ -31,6 +31,22 @@ export const PASSWORD_REQUIREMENTS = [
 export const INSTITUTIONAL_DOMAIN = '@unisimon.edu.co';
 const INSTITUTIONAL_EMAIL_REGEX = /^[^@\s]+@unisimon\.edu\.co$/i;
 
+/** Celular colombiano: diez dígitos y empieza por 3. Espejo de ValidationPatterns.MOBILE_PHONE. */
+const MOBILE_PHONE_REGEX = /^3\d{9}$/;
+const MOBILE_PHONE_MESSAGE = 'Escribe un celular de 10 dígitos, por ejemplo 3001234567';
+
+/**
+ * Deja el celular como lo guarda la API: solo los diez dígitos. Quita espacios,
+ * guiones, paréntesis y el indicativo de Colombia si alguien lo escribió.
+ */
+export const normalizePhone = (value) => {
+    const digits = String(value ?? '').replace(/\D/g, '');
+    return digits.length === 12 && digits.startsWith('57') ? digits.slice(2) : digits;
+};
+
+/** Semestres que se pueden declarar. Espejo de ValidationPatterns.MIN_SEMESTER y MAX_SEMESTER. */
+export const SEMESTERS = Array.from({ length: 12 }, (_, index) => index + 1);
+
 // ── Reglas zod reutilizables ─────────────────────────────────────────────
 
 const name = (missing) => z.string().trim().min(1, missing).max(100, 'Máximo 100 caracteres');
@@ -47,6 +63,11 @@ export const rules = {
     anyEmail: () =>
         z.string().trim().min(1, 'Ingresa el correo').max(150, 'Máximo 150 caracteres').pipe(z.email('Ingresa un correo válido')),
     password: () => z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE).refine(fitsInBytes, PASSWORD_MESSAGE),
+    /** Celular, ya sin espacios ni indicativo. */
+    mobilePhone: (missing = 'Ingresa tu celular') =>
+        z.string().min(1, missing).transform(normalizePhone).pipe(z.string().regex(MOBILE_PHONE_REGEX, MOBILE_PHONE_MESSAGE)),
+    /** El semestre viene de un select: llega como texto. */
+    semester: (missing = 'Selecciona el semestre que cursas') => z.string().min(1, missing),
     dataConsent: (message) => z.boolean().refine((value) => value === true, { message }),
 };
 

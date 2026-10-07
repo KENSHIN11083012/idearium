@@ -7,7 +7,7 @@ import ProfilePage from './ProfilePage';
 import { profileApi } from './api';
 
 vi.mock('@/features/auth/useAuth', () => ({ useAuth: vi.fn() }));
-vi.mock('./api', () => ({ profileApi: { get: vi.fn(), update: vi.fn(), uploadPhoto: vi.fn(), deletePhoto: vi.fn() } }));
+vi.mock('./api', () => ({ profileApi: { get: vi.fn(), update: vi.fn(), uploadPhoto: vi.fn() } }));
 vi.mock('@/features/catalogs/api', () => ({
     CATALOG_PATHS: { campuses: '/campuses', faculties: '/faculties', academicPrograms: '/academic-programs' },
     catalogApi: { list: vi.fn().mockResolvedValue([]) },
@@ -22,7 +22,7 @@ const baseProfile = {
     photoId: null,
 };
 
-/** Etiquetas de la tarjeta de identidad (Correo, Sede, Facultad...). */
+/** Etiquetas de la tarjeta de identidad (Correo, Campus, Facultad...). */
 const cardTerms = () => screen.getAllByRole('term').map((term) => term.textContent);
 
 /** Valor que muestra la tarjeta para una etiqueta. */
@@ -65,7 +65,7 @@ describe('Mi perfil según el rol', () => {
 
         expect(await screen.findByText('Completa tu vínculo con la universidad')).toBeInTheDocument();
         expect(screen.getByText('Adscripción académica')).toBeInTheDocument();
-        expect(cardTerms()).toEqual(['Correo institucional', 'Sede', 'Facultad', 'Programa académico', 'Miembro desde']);
+        expect(cardTerms()).toEqual(['Correo institucional', 'Campus', 'Facultad', 'Programa académico', 'Miembro desde']);
         expect(cardValue('Facultad')).toBe('Sin asignar');
     });
 

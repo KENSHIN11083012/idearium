@@ -33,7 +33,9 @@ class TeacherControllerTest {
         zoe.setFirstName("zoe");
         User ana = TestData.user(8, "ana@unisimon.edu.co", Role.TEACHER);
         ana.setFirstName("Ana");
-        when(userRepository.findAllWithProfileByRole(Role.TEACHER)).thenReturn(List.of(zoe, ana));
+        // La consulta ya deja fuera a las cuentas anonimizadas: no se le ofrecen a nadie como profesor.
+        when(userRepository.findAllWithProfileByRoleAndAnonymizedAtIsNull(Role.TEACHER))
+                .thenReturn(List.of(zoe, ana));
 
         mockMvc.perform(get("/api/v1/teachers"))
                 .andExpect(status().isOk())

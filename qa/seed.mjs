@@ -2,7 +2,7 @@
 // ya entra con su contraseña, no la toca. Uso (desde la raíz del repo): node qa/seed.mjs
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { API, CREDS_FILE, api, loadCreds, login, newPassword, saveJson, sql } from "./lib.mjs";
+import { API, CREDS_FILE, PNG, api, loadCreds, login, multipartFile, newPassword, saveJson, sql } from "./lib.mjs";
 
 const FACULTY = "Ingenierías";
 
@@ -22,7 +22,7 @@ const creds = existsSync(CREDS_FILE) ? loadCreds() : {};
 for (const a of ACCOUNTS) creds[a.key] ??= { ...a, password: newPassword() };
 saveJson(CREDS_FILE, creds);
 
-// Sede y facultad de estudiantes y profesores. La facultad la crea el administrador más abajo:
+// Campus y facultad de estudiantes y profesores. La facultad la crea el administrador más abajo:
 // una base nueva no trae ninguna.
 const campusId = (await api("GET", "/campuses")).body[0].id;
 let facultyId;
@@ -41,7 +41,8 @@ const must = (res, what, ...statuses) => {
 
 /**
  * El primer ingreso de una cuenta, paso a paso, como lo haría la persona: verificar el correo,
- * cambiar la contraseña temporal, autorizar el tratamiento de datos y completar el perfil.
+ * cambiar la contraseña temporal, autorizar el tratamiento de datos, completar el perfil y subir
+ * la foto.
  *
  * @param currentPassword la contraseña con la que entra hoy (la temporal, si la creó la gestión)
  */
@@ -77,6 +78,21 @@ const firstLogin = async (c, role, currentPassword) => {
       `Perfil de ${c.email}`, 200,
     );
   }
+  if (pending.has("PROFILE_PHOTO")) await uploadPhoto(c, token);
+};
+
+/** La foto de perfil es obligatoria para todos los roles. */
+const uploadPhoto = async (c, token) =>
+  must(await api("PUT", "/users/me/photo", { token, form: multipartFile(PNG, "foto.png", "image/png") }), `Foto de ${c.email}`, 200);
+
+/**
+ * Entra con una cuenta que ya existe. Si lo único que le falta es la foto (la instalación es
+ * anterior a que fuera obligatoria), la sube: sin ella la API no la deja hacer nada más.
+ */
+const enter = async (c) => {
+  const session = await login(c.email, c.password);
+  if (session?.pendingSteps.includes("PROFILE_PHOTO")) await uploadPhoto(c, session.token);
+  return session;
 };
 
 // 1. Administrador. Si la instalación arrancó con ADMIN_EMAIL=qa.admin@unisimon.edu.co y
@@ -84,7 +100,7 @@ const firstLogin = async (c, role, currentPassword) => {
 // temporal y solo falta su primer ingreso. Si no, se registra y se promueve por SQL.
 const admin = creds.admin;
 const bootstrapPassword = process.env.ADMIN_PASSWORD;
-if (!(await login(admin.email, admin.password))) {
+if (!(await enter(admin))) {
   if (bootstrapPassword) {
     await firstLogin(admin, "ADMIN", bootstrapPassword);
   } else {
@@ -103,12 +119,12 @@ if (!faculties.some((f) => f.name === FACULTY)) {
   faculties = (await api("GET", "/faculties")).body;
 }
 facultyId = faculties.find((f) => f.name === FACULTY).id;
-console.log(`Facultad ${facultyId}, sede ${campusId}`);
+console.log(`Facultad ${facultyId}, campus ${campusId}`);
 
 // 3. El resto.
 for (const a of ACCOUNTS.filter((x) => x.via !== "register+sql")) {
   const c = creds[a.key];
-  if (await login(c.email, c.password)) continue;
+  if (await enter(c)) continue;
   if (a.via === "register") {
     await register(c);
     await firstLogin(c, a.role, c.password);

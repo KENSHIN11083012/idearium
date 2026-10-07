@@ -142,7 +142,7 @@ class NotificationIT extends IntegrationTest {
         post("/api/v1/projects/" + projectId + "/invitations", leaderToken, Map.of("email", member))
                 .expect(201);
         int invitationId = get("/api/v1/invitations", memberToken).expect(200).json("$[0].id");
-        post("/api/v1/invitations/" + invitationId + "/acceptance", memberToken, null)
+        post("/api/v1/invitations/" + invitationId + "/acceptance", memberToken, Map.of("semester", 4))
                 .expect(200);
         String macondolab = loginAs(Role.MACONDOLAB);
 
@@ -203,6 +203,8 @@ class NotificationIT extends IntegrationTest {
                 "sectorId",
                 ((List<Integer>) get("/api/v1/sectors", null).expect(200).json("$[*].id")).getFirst());
         body.put("teacherId", idOf(teacherEmail));
+        body.put("semester", 5);
+        body.put("phone", "3001234567");
         return post("/api/v1/projects", leaderToken, body).expect(201).json("$.id");
     }
 }

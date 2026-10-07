@@ -26,11 +26,13 @@ dominio.
 
 - Autenticación: registro con solo el correo institucional y una contraseña, inicio de sesión y
   primer ingreso, donde cada cuenta resuelve sus pasos pendientes (verificar el correo, cambiar la
-  contraseña temporal, aceptar el tratamiento de datos, completar el perfil).
+  contraseña temporal, aceptar el tratamiento de datos, completar el perfil y subir su foto, que es
+  obligatoria para todos los roles).
 - Enlaces por correo: quien se registra verifica que el correo es suyo abriendo un enlace, y quien
   olvidó la contraseña pone una nueva con otro. Los dos dependen del servidor de correo y de
   `APP_URL`; sin ellos no se pide verificación y la contraseña la restablece la gestión.
-- Perfil propio: foto, datos personales, seguridad (cambio de contraseña) y consentimiento de datos.
+- Perfil propio: foto (se cambia por otra, no se quita), datos personales, seguridad (cambio de
+  contraseña) y consentimiento de datos.
   Cambiar la contraseña cierra las demás sesiones abiertas de esa cuenta.
 - Gestión de usuarios: ADMIN y MacondoLab crean, editan, restablecen contraseña, suspenden y eliminan
   cuentas, y cargan el [listado de la cátedra](docs/listado.md) para que cada persona se registre
@@ -39,12 +41,13 @@ dominio.
   suspendida no entra, pero conserva sus proyectos, entregas y evaluaciones.
 - Rastro de auditoría: queda registrado quién cambió un rol, restableció una contraseña, suspendió o
   eliminó una cuenta, publicó u ocultó notas, corrigió una evaluación (con la nota que tenía y la
-  nueva), quitó a un jurado o eliminó un proyecto o un entregable. Por ahora se consulta por la API
-  (`GET /api/v1/admin/audit`, solo ADMIN); todavía no tiene pantalla.
+  nueva), quitó a un jurado, retiró a un integrante de un equipo o eliminó un proyecto o un
+  entregable. Por ahora se consulta por la API (`GET /api/v1/admin/audit`, solo ADMIN); todavía no
+  tiene pantalla.
 - Estado de la instalación: `/expoideas/salud` dice si la plataforma está arriba, para el monitoreo
   de TI, y el administrador ve la versión, el disco de los archivos y el correo en
   `GET /api/v1/admin/status`.
-- Catálogos: sedes, facultades, programas académicos, sectores, keywords y tipos de prototipo.
+- Catálogos: campus, facultades, programas académicos, sectores, keywords y tipos de prototipo.
 - Archivos: subida y descarga, hasta 5 MB, validados por contenido (JPG, PNG, WEBP y PDF; las
   plantillas también en DOCX y PPTX).
 - Avisos por correo: invitaciones a un equipo, cuentas creadas por la gestión, sustentaciones y
@@ -57,8 +60,10 @@ dominio.
   entregas) y la configuración de cada cátedra (mínimo y máximo de integrantes). Las ediciones no se
   solapan y la plataforma abre y cierra sola según las fechas.
 - Inscripción de proyectos: el estudiante que inscribe queda como líder, elige cátedra, sector y
-  profesor, e invita a sus compañeros por correo; nadie entra a un equipo sin aceptar la invitación.
-  Cada estudiante está en un solo proyecto por cátedra en cada edición.
+  profesor, e invita a sus compañeros buscándolos por el nombre o con su correo; nadie entra a un
+  equipo sin aceptar la invitación, y salir o cambiarse de equipo pasa por el líder o la gestión.
+  Cada estudiante está en un solo proyecto por cátedra en cada edición. Al inscribir, el líder dice
+  el semestre que cursa y su celular de contacto; cada compañero dice su semestre al aceptar.
 - Prerrequisito: nadie cursa las dos cátedras a la vez, y para inscribirse en INNPRENDE II hay que
   haber aprobado INNPRENDE I. El profesor registra el resultado del proyecto al cerrar las entregas.
 - Entregables: MacondoLab define qué pide cada cátedra (nombre, formatos aceptados o enlace, si es
@@ -74,14 +79,17 @@ dominio.
 - Publicación de notas: la gestión publica las de cada cátedra en «Ediciones», y desde ese momento
   cada equipo ve su nota final y las observaciones de los jurados, sin nombres.
 - Directorio y reportes: la gestión ve todos los proyectos y filtra por edición, cátedra, sector o
-  profesor; cada profesor ve solo los que lo nombraron. Ambos exportan la lista en CSV, con el
-  progreso de entregables de cada proyecto.
+  profesor, y la ordena por lo más reciente o por título; cada profesor ve solo los que lo nombraron.
+  Ambos exportan la lista en CSV, en el orden elegido y con el progreso de entregables de cada
+  proyecto.
+- Plazos a la vista: la ficha del proyecto y «Mis proyectos» dicen cuántos días quedan para que
+  cierren las entregas, y cada entregable con cierre propio, cuántos le quedan a él.
 
 ## Qué falta
 
-**De la plataforma**: el rastro de auditoría todavía no tiene pantalla (se consulta por la API), y
-quedan para después de abrir las mejoras del plan que no eran urgentes: lo que pide la Ley 1581
-(exportar y anonimizar los datos de una persona), archivar una edición entera, el antivirus de los
+**De la plataforma**: el rastro de auditoría y lo que pide la Ley 1581 (descargar los propios datos
+y anonimizar una cuenta) todavía no tienen pantalla: se usan por la API. Quedan para después de
+abrir las mejoras del plan que no eran urgentes: archivar una edición entera, el antivirus de los
 archivos, avisar cuando dos personas editan lo mismo y el inicio de sesión institucional.
 
 ## Requisitos
@@ -191,7 +199,7 @@ docker compose ps
 `mysql` y `api` deben decir `healthy`, y `app`, `Up`. Después, en el navegador:
 
 - `http://localhost:8080/expoideas/` muestra la portada de Idearium.
-- `http://localhost:8080/expoideas/api/v1/campuses` responde con las dos sedes, Barranquilla y
+- `http://localhost:8080/expoideas/api/v1/campuses` responde con los dos campus, Barranquilla y
   Cúcuta. Si esto funciona, la app, la API y la base de datos se están hablando.
 
 Cambia `8080` por tu `HTTP_PORT` si lo tocaste y, desde otro equipo, `localhost` por el nombre o la
@@ -212,10 +220,10 @@ ADMIN_PASSWORD=<una contraseña temporal, solo para el primer ingreso>
 ```
 
 Al arrancar, la API crea esa cuenta como administrador. La persona entra con esa contraseña y la
-plataforma le pide cambiarla, autorizar el tratamiento de sus datos y poner su nombre. Desde ahí
-crea las demás cuentas y reparte roles en **Usuarios**, y carga las facultades en **Catálogos**: una
-base recién creada trae las dos sedes (Barranquilla y Cúcuta) pero ninguna facultad, y sin al menos
-una los estudiantes y profesores no pueden terminar su primer ingreso.
+plataforma le pide cambiarla, autorizar el tratamiento de sus datos, poner su nombre y subir su
+foto. Desde ahí crea las demás cuentas y reparte roles en **Usuarios**, y carga las facultades en
+**Catálogos**: una base recién creada trae los dos campus (Barranquilla y Cúcuta) pero ninguna
+facultad, y sin al menos una los estudiantes y profesores no pueden terminar su primer ingreso.
 
 Las dos variables solo cuentan mientras no haya ningún administrador: después se ignoran y se pueden
 borrar del `.env`. Si la plataforma ya estaba arrancada sin ellas, basta añadirlas y volver a
@@ -491,7 +499,7 @@ expoideas-api/src/main/java/co/edu/unisimon/expoideas/
   auth/         Login y registro (rutas públicas)
   security/     JWT, filtros, SecurityConfig
   users/        Cuenta propia, gestión de usuarios, roles, listado de la cátedra
-  catalogs/     Sedes, facultades, programas académicos, sectores, keywords, tipos de prototipo
+  catalogs/     Campus, facultades, programas académicos, sectores, keywords, tipos de prototipo
   editions/     Ediciones de la Expo, sus plazos y la configuración de cada cátedra
   projects/     Proyectos inscritos, equipo, líder e invitaciones
   deliverables/ Qué pide cada cátedra y qué subió cada equipo
@@ -518,11 +526,11 @@ scripts/      Copia de seguridad y restauración
 
 | Rol | Quién | Puede |
 |---|---|---|
-| `ADMIN` | Parte técnica de la plataforma | Todo lo de MacondoLab, y además gestionar cuentas de gestión (ADMIN, MACONDOLAB) y la estructura académica (sedes, facultades, programas) |
+| `ADMIN` | Parte técnica de la plataforma | Todo lo de MacondoLab, y además gestionar cuentas de gestión (ADMIN, MACONDOLAB) y la estructura académica (campus, facultades, programas) |
 | `MACONDOLAB` | Coordinación de INNPRENDE I y II | Gestionar cuentas de estudiantes, profesores y jurados; administrar sectores, keywords y tipos de prototipo; abrir ediciones y configurar sus entregables; programar sustentaciones, asignar jurados y publicar las notas; ver y exportar el directorio completo |
-| `TEACHER` | Profesor de la universidad | Ver y exportar los proyectos que lo nombraron, registrar su resultado y ver sus notas. Puede ser jurado de proyectos de otros profesores. Declara sede y facultad |
+| `TEACHER` | Profesor de la universidad | Ver y exportar los proyectos que lo nombraron, registrar su resultado y ver sus notas. Puede ser jurado de proyectos de otros profesores. Declara campus y facultad |
 | `JUDGE` | Jurado, puede ser externo a la universidad | Calificar con la rúbrica los proyectos que la gestión le asigna, en «Evaluar». Su cuenta la crea la gestión. Sin adscripción académica obligatoria |
-| `STUDENT` | Rol con el que nace toda cuenta registrada | Inscribir un proyecto por cátedra, invitar a su equipo, subir los entregables y ver su nota cuando se publica. Declara sede y facultad |
+| `STUDENT` | Rol con el que nace toda cuenta registrada | Inscribir un proyecto por cátedra, invitar a su equipo, subir los entregables y ver su nota cuando se publica. Declara campus y facultad |
 
 Ser jurado es una asignación por proyecto, no solo un rol: la gestión también puede asignar como
 jurado a un profesor o a una cuenta de gestión.

@@ -54,9 +54,34 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             @Param("pendingOnly") boolean pendingOnly,
             Pageable pageable);
 
-    /** Las cuentas de ese rol, con su perfil: el filtro lo hace la base, no la memoria. */
+    /**
+     * Las cuentas de ese rol que siguen siendo de alguien, con su perfil: el filtro
+     * lo hace la base, no la memoria. Una anonimizada no se ofrece para nada nuevo.
+     */
     @EntityGraph(User.WITH_PROFILE)
-    List<User> findAllWithProfileByRole(Role role);
+    List<User> findAllWithProfileByRoleAndAnonymizedAtIsNull(Role role);
+
+    /**
+     * Las cuentas de ese rol que se pueden proponer para algo nuevo (activas, de
+     * alguien y con nombre) y cuyo nombre contiene ese texto; la base no distingue
+     * mayúsculas ni tildes. Sin las de {@code excluded}, que no puede venir vacía.
+     * Cuántas y en qué orden lo dice {@code pageable}.
+     */
+    @EntityGraph(User.WITH_PROFILE)
+    @Query("""
+            select u from User u
+            where u.role = :role
+              and u.enabled = true
+              and u.anonymizedAt is null
+              and u.firstName is not null
+              and u.id not in :excluded
+              and concat(u.firstName, ' ', coalesce(u.lastName, '')) like concat('%', :name, '%')
+            """)
+    List<User> findActiveByRoleAndName(
+            @Param("role") Role role,
+            @Param("name") String name,
+            @Param("excluded") Collection<Integer> excluded,
+            Pageable pageable);
 
     /** De esos correos, los que ya tienen cuenta (la columna no distingue mayúsculas). */
     @Query("select u.email from User u where u.email in :emails")

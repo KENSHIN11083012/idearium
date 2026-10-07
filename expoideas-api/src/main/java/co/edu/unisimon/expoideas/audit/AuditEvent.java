@@ -12,6 +12,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -62,6 +64,31 @@ public class AuditEvent {
 
     @Column(length = DETAIL_LENGTH)
     private String detail;
+
+    /**
+     * La única corrección que admite el rastro: dejar de decir de quién era una
+     * cuenta anonimizada. Lo que pasó, quién (por id) y cuándo no cambian.
+     *
+     * @param formerName el nombre que pudo quedar escrito en el detalle, o null
+     */
+    void forget(String formerEmail, String formerName, String alias, String namePlaceholder) {
+        if (formerEmail.equalsIgnoreCase(actorEmail)) {
+            actorEmail = alias;
+        }
+        if (formerEmail.equalsIgnoreCase(targetLabel)) {
+            targetLabel = alias;
+        }
+        if (detail != null) {
+            String cleaned = detail.replace(formerEmail, alias);
+            if (formerName != null) {
+                // Solo el nombre entero: «Ana Paz» no se quita de «Ana Paz Rodríguez», que es otra persona.
+                cleaned = Pattern.compile("(?<!\\p{L}\\s?)" + Pattern.quote(formerName) + "(?!\\s?\\p{L})")
+                        .matcher(cleaned)
+                        .replaceAll(Matcher.quoteReplacement(namePlaceholder));
+            }
+            detail = fit(cleaned, DETAIL_LENGTH);
+        }
+    }
 
     /**
      * @param actorId    la cuenta con la sesión; null si nadie la tenía

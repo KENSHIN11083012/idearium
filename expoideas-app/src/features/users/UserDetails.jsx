@@ -72,7 +72,7 @@ export function SuspendedBadge({ user, className }) {
     );
 }
 
-/** Facultad arriba; sede y programa debajo. La gestión y los jurados no tienen adscripción. */
+/** Facultad arriba; campus y programa debajo. La gestión y los jurados no tienen adscripción. */
 export function AffiliationSummary({ user }) {
     if (!requiresAffiliation(user.role)) {
         return <p className="text-xs text-outline">No aplica</p>;
@@ -81,7 +81,7 @@ export function AffiliationSummary({ user }) {
         <>
             <p className={user.faculty ? undefined : 'italic text-outline'}>{user.faculty ?? 'Sin facultad'}</p>
             <p className="text-xs text-outline">
-                {user.campus ?? 'Sin sede'} · {user.academicProgram ?? 'Sin programa'}
+                {user.campus ?? 'Sin campus'} · {user.academicProgram ?? 'Sin programa'}
             </p>
         </>
     );

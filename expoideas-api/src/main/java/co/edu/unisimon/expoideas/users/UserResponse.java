@@ -15,6 +15,8 @@ import java.util.List;
  * {@code photoId} es el identificador público de la foto (GET /api/v1/files/{id}).
  * {@code suspended} dice si la gestión le cortó el acceso, y {@code pendingRole},
  * el rol del listado de la cátedra que la gestión aún no ha confirmado.
+ * {@code anonymized} dice que la cuenta ya no es de nadie: no tiene nombre ni
+ * correo real y no se puede modificar.
  */
 public record UserResponse(
         Integer id,
@@ -32,7 +34,8 @@ public record UserResponse(
         String academicProgram,
         List<OnboardingStep> pendingSteps,
         boolean suspended,
-        Role pendingRole) {
+        Role pendingRole,
+        boolean anonymized) {
 
     /** Requiere las relaciones cargadas (grafo {@link User#WITH_PROFILE} o dentro de la transacción). */
     public static UserResponse from(User user) {
@@ -55,6 +58,7 @@ public record UserResponse(
                 program != null ? program.getName() : null,
                 user.pendingSteps(),
                 !user.isEnabled(),
-                user.getPendingRole());
+                user.getPendingRole(),
+                user.isAnonymized());
     }
 }

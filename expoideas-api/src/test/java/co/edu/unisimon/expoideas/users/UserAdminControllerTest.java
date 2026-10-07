@@ -69,6 +69,10 @@ class UserAdminControllerTest {
                         .content(RESET))
                 .andExpect(status().isNoContent());
         mockMvc.perform(delete("/api/v1/admin/users/5")).andExpect(status().isNoContent());
+        when(managementService.anonymize(EMAIL, 6)).thenReturn(response(6, Role.STUDENT));
+        mockMvc.perform(post("/api/v1/admin/users/6/anonymization"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(6));
 
         verify(managementService).update(EMAIL, 5, new UserUpdateRequest(Role.JUDGE, null, null, null));
         verify(managementService).resetPassword(EMAIL, 5, new PasswordResetRequest("Segura#2026", "Segura#2026"));
@@ -96,7 +100,11 @@ class UserAdminControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.detail").value("No tienes permiso para realizar esta acción"));
 
+        // Anonimizar tampoco tiene vuelta atrás: es cosa del administrador.
+        mockMvc.perform(post("/api/v1/admin/users/5/anonymization")).andExpect(status().isForbidden());
+
         verify(managementService, never()).delete(any(), any());
+        verify(managementService, never()).anonymize(any(), any());
     }
 
     @Test
@@ -208,6 +216,7 @@ class UserAdminControllerTest {
                 null,
                 List.of(),
                 false,
-                null);
+                null,
+                false);
     }
 }

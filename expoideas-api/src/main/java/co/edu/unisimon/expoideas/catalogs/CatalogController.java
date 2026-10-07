@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Catálogos. La lectura es pública: la usa el registro antes de que haya sesión.
- * Sedes, facultades y programas los escribe el administrador; sectores y
+ * Campus, facultades y programas los escribe el administrador; sectores y
  * keywords, también MacondoLab (ver SecurityConfig). No hay borrado: los
  * registros pueden estar referenciados por cuentas y programas.
  */
@@ -27,7 +27,7 @@ public class CatalogController {
 
     private final CatalogService catalogService;
 
-    // ── Sedes ───────────────────────────────────────────────────────────────
+    // ── Campus ──────────────────────────────────────────────────────────────
 
     @GetMapping("/campuses")
     @SecurityRequirements

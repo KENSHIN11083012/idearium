@@ -76,7 +76,7 @@ public class UserAccountService {
     }
 
     private UserResponse register(User user) {
-        user.giveDataConsent(LocalDateTime.now(clock));
+        user.giveDataConsent(LocalDateTime.now(clock), DataConsent.VERSION);
 
         User saved = userRepository.save(user);
         log.info("Usuario registrado con ID {}", saved.getId());
@@ -95,8 +95,8 @@ public class UserAccountService {
     /**
      * Reemplaza nombre y, si el rol la lleva, adscripción académica.
      *
-     * @throws InvalidFieldsException si faltan sede o facultad, o el programa es de otra facultad
-     * @throws NoSuchElementException si la sede, la facultad o el programa no existen
+     * @throws InvalidFieldsException si faltan campus o facultad, o el programa es de otra facultad
+     * @throws NoSuchElementException si el campus, la facultad o el programa no existen
      */
     @Transactional
     public UserResponse updateProfile(String email, ProfileUpdateRequest request) {
@@ -126,23 +126,12 @@ public class UserAccountService {
         return UserResponse.from(user);
     }
 
-    /** Quita la foto de perfil, si tiene. */
-    @Transactional
-    public void deletePhoto(String email) {
-        User user = findByEmail(email);
-        StoredFile photo = user.getPhoto();
-        if (photo != null) {
-            user.setPhoto(null);
-            fileService.delete(photo);
-        }
-    }
-
     /** Autorización de tratamiento de datos; si ya la había dado, conserva la fecha original. */
     @Transactional
     public void giveDataConsent(String email) {
         User user = findByEmail(email);
         if (!user.isDataConsent()) {
-            user.giveDataConsent(LocalDateTime.now(clock));
+            user.giveDataConsent(LocalDateTime.now(clock), DataConsent.VERSION);
             log.info("Usuario ID {} autorizó el tratamiento de datos", user.getId());
         }
     }

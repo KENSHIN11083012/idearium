@@ -21,8 +21,9 @@ class ProjectCsvTest {
         assertThat(lines).hasSize(2);
         assertThat(lines[0]).startsWith(ProjectCsv.BOM + "Edición;Cátedra;Proyecto");
         assertThat(lines[1])
-                .isEqualTo("Expoideas 2026-2;INNPRENDE I · Despegue;BioSensor IoT;Agroindustria y alimentos;"
-                        + "Prototipo digital;Carlos Mendoza;Ana Pérez;3;2;2;1;4.3;2 de 3;Aprobado;2026-11-04");
+                .isEqualTo(
+                        "Expoideas 2026-2;INNPRENDE I · Despegue;BioSensor IoT;Agroindustria y alimentos;"
+                                + "Prototipo digital;Carlos Mendoza;Ana Pérez;5;3001234567;3;2;2;1;4.3;2 de 3;Aprobado;2026-11-04");
     }
 
     @Test
@@ -31,9 +32,9 @@ class ProjectCsvTest {
         String row = csv.split("\n")[1];
 
         assertThat(row).contains("\"Riego; inteligente\"").contains("\"Moda y \"\"textil\"\"\"");
-        // Las comillas protegen el punto y coma: la fila sigue teniendo 15 columnas.
+        // Las comillas protegen el punto y coma: la fila sigue teniendo 17 columnas.
         assertThat(row.replaceAll("\"[^\"]*(\"\"[^\"]*)*\"", "X").split(";", -1))
-                .hasSize(15);
+                .hasSize(17);
     }
 
     @Test
@@ -73,6 +74,8 @@ class ProjectCsvTest {
                 "Prototipo digital",
                 "Carlos Mendoza",
                 "Ana Pérez",
+                5,
+                "3001234567",
                 3,
                 2,
                 2,

@@ -6,7 +6,7 @@ import { Alert, Skeleton } from '@/components/ui/feedback';
 import { useAffiliationCatalogs } from './queries';
 
 /**
- * Sede, facultad y programa académico para formularios de react-hook-form con
+ * Campus, facultad y programa académico para formularios de react-hook-form con
  * los campos de affiliationShape (lib/affiliation.js). El programa se filtra por
  * la facultad elegida y es opcional: los docentes pueden pertenecer a una
  * facultad sin estar en un programa. Los catálogos se piden al montarse y quedan
@@ -33,7 +33,7 @@ export function AffiliationFields({ form }) {
 
     if (error) {
         return (
-            <Alert variant="error" title="No pudimos cargar las sedes y facultades">
+            <Alert variant="error" title="No pudimos cargar los campus y las facultades">
                 {error.message}
             </Alert>
         );
@@ -62,9 +62,9 @@ export function AffiliationFields({ form }) {
 
     return (
         <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Sede" error={errors.campusId?.message} required>
+            <Field label="Campus" error={errors.campusId?.message} required>
                 <NativeSelect {...register('campusId')}>
-                    <option value="">Selecciona la sede</option>
+                    <option value="">Selecciona el campus</option>
                     {campuses.map((campus) => (
                         <option key={campus.id} value={String(campus.id)}>
                             {campus.name}

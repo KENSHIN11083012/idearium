@@ -19,7 +19,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,12 +38,10 @@ public class ProjectDirectoryService {
     private final EvaluationService evaluationService;
     private final ProjectPolicy policy;
 
-    /** De la inscripción más reciente a la más antigua; el id desempata. */
-    private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
-
-    /** Una página del listado. */
+    /** Una página del listado, en el orden que elija quien lo mira. */
     @Transactional(readOnly = true)
-    public PageResponse<ProjectSummaryResponse> list(String email, ProjectFilter filter, int page, int size) {
+    public PageResponse<ProjectSummaryResponse> list(
+            String email, ProjectFilter filter, ProjectSort sort, int page, int size) {
         Integer teacherId = teacherScope(email, filter);
         Page<Integer> ids = projectRepository.searchIds(
                 filter.editionId(),
@@ -53,7 +50,7 @@ public class ProjectDirectoryService {
                 filter.sectorId(),
                 filter.result(),
                 blankToNull(filter.search()),
-                PageResponse.request(page, size, NEWEST_FIRST));
+                PageResponse.request(page, size, sort.sort()));
         // Con su equipo en una sola consulta, y en el orden de la página.
         Map<Integer, Project> byId = projectRepository.findWithTeamByIdIn(ids.getContent()).stream()
                 .collect(Collectors.toMap(Project::getId, Function.identity()));
@@ -74,14 +71,15 @@ public class ProjectDirectoryService {
 
     /** Todos los proyectos que cumplen los filtros, en CSV, para trabajarlos en una hoja de cálculo. */
     @Transactional(readOnly = true)
-    public String export(String email, ProjectFilter filter) {
+    public String export(String email, ProjectFilter filter, ProjectSort sort) {
         return ProjectCsv.of(summaries(projectRepository.search(
                 filter.editionId(),
                 filter.track(),
                 teacherScope(email, filter),
                 filter.sectorId(),
                 filter.result(),
-                blankToNull(filter.search()))));
+                blankToNull(filter.search()),
+                sort.sort())));
     }
 
     /** Nombre del archivo exportado, con la fecha de hoy en Colombia. */

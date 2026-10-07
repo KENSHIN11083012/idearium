@@ -33,10 +33,12 @@ public record AuditableAction(Action action, Integer targetId, String targetLabe
         ACCOUNT_SUSPENDED(Target.ACCOUNT, "Cuenta suspendida"),
         ACCOUNT_REACTIVATED(Target.ACCOUNT, "Cuenta reactivada"),
         ACCOUNT_DELETED(Target.ACCOUNT, "Cuenta eliminada"),
+        ACCOUNT_ANONYMIZED(Target.ACCOUNT, "Cuenta anonimizada"),
         GRADES_PUBLISHED(Target.EDITION, "Notas publicadas"),
         GRADES_HIDDEN(Target.EDITION, "Notas ocultadas"),
         EVALUATION_EDITED(Target.EVALUATION, "Evaluación corregida"),
         JUROR_REMOVED(Target.PROJECT, "Jurado quitado"),
+        TEAM_MEMBER_REMOVED(Target.PROJECT, "Integrante retirado del equipo"),
         PROJECT_DELETED(Target.PROJECT, "Proyecto eliminado"),
         DELIVERABLE_DELETED(Target.DELIVERABLE, "Entregable eliminado"),
         MAIL_FAILED(Target.MAIL, "Correo que no se pudo enviar");

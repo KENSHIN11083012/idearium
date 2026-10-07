@@ -56,6 +56,14 @@ public class ProjectMember {
     @Column(nullable = false, length = 20)
     private MembershipStatus status;
 
+    /** El semestre que cursa al entrar a este equipo. Lo dice al inscribir o al aceptar; antes, null. */
+    @Column
+    private Integer semester;
+
+    /** Celular de contacto. Solo lo da el líder, al inscribir el proyecto. */
+    @Column(length = 20)
+    private String phone;
+
     @CreatedDate
     @Column(name = "invited_at", nullable = false, updatable = false)
     private LocalDateTime invitedAt;
@@ -72,9 +80,16 @@ public class ProjectMember {
         return status == MembershipStatus.ACCEPTED;
     }
 
-    /** Marca la invitación como aceptada, con la fecha de la respuesta. */
-    public void accept(LocalDateTime now) {
+    /** Marca la invitación como aceptada, con la fecha de la respuesta y el semestre que dice cursar. */
+    public void accept(LocalDateTime now, Integer semester) {
         status = MembershipStatus.ACCEPTED;
         respondedAt = now;
+        this.semester = semester;
+    }
+
+    /** Lo que declara el líder al inscribir el proyecto, o al corregirlo después. */
+    public void declare(Integer semester, String phone) {
+        this.semester = semester;
+        this.phone = phone;
     }
 }

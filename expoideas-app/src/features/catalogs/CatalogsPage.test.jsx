@@ -17,14 +17,14 @@ describe('Catálogos por rol', () => {
         render(<CatalogsPage />);
 
         expect(tabs()).toEqual([
-            'Sedes',
+            'Campus',
             'Facultades',
             'Programas académicos',
             'Sectores',
             'Tipos de prototipo',
             'Palabras clave',
         ]);
-        expect(screen.getByText('Panel de Sedes')).toBeInTheDocument();
+        expect(screen.getByText('Panel de Campus')).toBeInTheDocument();
     });
 
     it('MacondoLab solo ve la clasificación de proyectos', () => {
@@ -33,6 +33,6 @@ describe('Catálogos por rol', () => {
 
         expect(tabs()).toEqual(['Sectores', 'Tipos de prototipo', 'Palabras clave']);
         expect(screen.getByText('Panel de Sectores')).toBeInTheDocument();
-        expect(screen.queryByText(/Sedes/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Campus/)).not.toBeInTheDocument();
     });
 });

@@ -89,6 +89,41 @@ class ProjectDirectoryIT extends IntegrationTest {
         assertThat(csv).contains(batch + "-1", batch + "-2", batch + "-3");
     }
 
+    @Test
+    void theListingAndTheCsvComeInTheOrderTheViewerChooses() {
+        String batch = "Orden-" + System.nanoTime();
+        String macondolab = loginAs(Role.MACONDOLAB);
+        // Inscritos en un orden que no es el alfabético.
+        for (String name : List.of(" Mango", " Arepa", " Zapote")) {
+            newProject(batch + name);
+        }
+        String listing = "/api/v1/projects?search=" + batch;
+
+        // Sin pedir nada, como siempre: el más reciente primero.
+        assertThat(get(listing, macondolab).expect(200).<List<String>>json("$.items[*].title"))
+                .containsExactly(batch + " Zapote", batch + " Arepa", batch + " Mango");
+        assertThat(get(listing + "&sort=RECENT", macondolab).expect(200).<List<String>>json("$.items[*].title"))
+                .containsExactly(batch + " Zapote", batch + " Arepa", batch + " Mango");
+
+        // Por título, y el orden se mantiene de una página a la siguiente.
+        assertThat(get(listing + "&sort=TITLE&size=2", macondolab).expect(200).<List<String>>json("$.items[*].title"))
+                .containsExactly(batch + " Arepa", batch + " Mango");
+        assertThat(get(listing + "&sort=TITLE&size=2&page=1", macondolab)
+                        .expect(200)
+                        .<List<String>>json("$.items[*].title"))
+                .containsExactly(batch + " Zapote");
+
+        // El CSV sale igual que se ve en pantalla.
+        String csv = get("/api/v1/projects/export?sort=TITLE&search=" + batch, macondolab)
+                .expect(200)
+                .body();
+        assertThat(csv.indexOf(batch + " Arepa")).isPositive().isLessThan(csv.indexOf(batch + " Mango"));
+        assertThat(csv.indexOf(batch + " Mango")).isLessThan(csv.indexOf(batch + " Zapote"));
+
+        // Un orden que no existe es un error de quien pide, no un 500.
+        get(listing + "&sort=CUALQUIERA", macondolab).expect(400);
+    }
+
     /** Cuántas sentencias le cuesta a la base responder ese listado, que debe traer esos proyectos. */
     private long statementsOf(String uri, String token, int projects) {
         Statistics statistics =
@@ -201,6 +236,8 @@ class ProjectDirectoryIT extends IntegrationTest {
                 "sectorId",
                 ((List<Integer>) get("/api/v1/sectors", null).expect(200).json("$[*].id")).getFirst());
         body.put("teacherId", idOf(teacher));
+        body.put("semester", 5);
+        body.put("phone", "3001234567");
         post("/api/v1/projects", token, body).expect(201);
 
         return new Fixture(title, token, teacher);

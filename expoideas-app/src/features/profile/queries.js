@@ -27,15 +27,3 @@ export const useUpdateProfile = () =>
     useProfileMutation(profileApi.update, ({ firstName, lastName }) => ({ firstName, lastName }));
 
 export const useUploadPhoto = () => useProfileMutation(profileApi.uploadPhoto, ({ photoId }) => ({ photoId }));
-
-export const useDeletePhoto = () => {
-    const queryClient = useQueryClient();
-    const { updateUser } = useAuth();
-    return useMutation({
-        mutationFn: profileApi.deletePhoto,
-        onSuccess: () => {
-            queryClient.setQueryData(profileKey, (profile) => profile && { ...profile, photoId: null });
-            updateUser({ photoId: null });
-        },
-    });
-};

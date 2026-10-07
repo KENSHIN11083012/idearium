@@ -28,6 +28,13 @@ const invitation = {
     invitedAt: '2026-11-05T10:00:00',
 };
 
+/** El día que cae a esa distancia de hoy, como lo entrega la API ("2026-11-28"). */
+const inDays = (days) => {
+    const day = new Date();
+    day.setDate(day.getDate() + days);
+    return day.toLocaleDateString('en-CA');
+};
+
 let answer;
 
 const renderPage = ({ projects = [project], invitations = [], editions = [openEdition] } = {}) => {
@@ -51,6 +58,12 @@ describe('Mis proyectos', () => {
         expect(screen.getByText('INNPRENDE I · Despegue')).toBeInTheDocument();
         expect(screen.getByText('Carlos Mendoza')).toBeInTheDocument();
         expect(screen.getByText('1 de 5 integrantes')).toBeInTheDocument();
+    });
+
+    it('cada proyecto dice cuánto falta para que cierren las entregas', () => {
+        renderPage({ projects: [{ ...project, submissionClosesOn: inDays(5) }] });
+
+        expect(screen.getByText('Quedan 5 días para entregar')).toBeInTheDocument();
     });
 
     it('sin proyectos invita a inscribir uno mientras haya inscripciones abiertas', () => {
@@ -101,15 +114,21 @@ describe('Invitaciones', () => {
         expect(screen.getAllByRole('button', { name: /Inscribir proyecto/ })).toHaveLength(1);
     });
 
-    it('aceptar entra al equipo', async () => {
+    it('para aceptar dice el semestre que cursa, y con eso entra al equipo', async () => {
         renderPage({ invitations: [invitation] });
 
         await userEvent.click(screen.getByRole('button', { name: 'Aceptar' }));
 
-        expect(answer.mutateAsync).toHaveBeenCalledWith({ id: 4, accept: true });
+        expect(screen.getByRole('alert')).toHaveTextContent('Selecciona el semestre que cursas para aceptar.');
+        expect(answer.mutateAsync).not.toHaveBeenCalled();
+
+        await userEvent.selectOptions(screen.getByLabelText('Semestre que cursas'), '4');
+        await userEvent.click(screen.getByRole('button', { name: 'Aceptar' }));
+
+        expect(answer.mutateAsync).toHaveBeenCalledWith({ id: 4, accept: true, semester: 4 });
     });
 
-    it('rechazar descarta la invitación', async () => {
+    it('rechazar descarta la invitación, sin pedir el semestre', async () => {
         renderPage({ invitations: [invitation] });
 
         await userEvent.click(screen.getByRole('button', { name: 'Rechazar' }));

@@ -11,6 +11,8 @@ public enum OnboardingStep {
     CHANGE_PASSWORD,
     /** Falta la autorización de tratamiento de datos personales (Ley 1581 de 2012). */
     DATA_CONSENT,
-    /** Falta el nombre o, en los roles que la llevan, la adscripción académica (sede y facultad). */
-    COMPLETE_PROFILE
+    /** Falta el nombre o, en los roles que la llevan, la adscripción académica (campus y facultad). */
+    COMPLETE_PROFILE,
+    /** Falta la foto de perfil: la llevan todas las cuentas, del rol que sean. */
+    PROFILE_PHOTO
 }

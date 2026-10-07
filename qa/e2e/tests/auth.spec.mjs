@@ -1,4 +1,4 @@
-import { creds, deleteUsersByEmail, expect, field, loginAs, path, stamp, test, uiLogout } from "../fixtures.mjs";
+import { creds, deleteUsersByEmail, expect, field, loginAs, path, PNG, stamp, test, uiLogout } from "../fixtures.mjs";
 
 // La cuenta registrada aquí queda sin proyectos ni equipo: el administrador la puede eliminar.
 
@@ -40,9 +40,16 @@ test("registro: valida en el cliente, crea la cuenta y completa su perfil en el 
 
   await page.getByLabel("Nombres").fill("Registro");
   await page.getByLabel("Apellidos").fill("QA E2E");
-  await page.getByLabel("Sede").selectOption({ index: 1 });
+  await page.getByLabel("Campus").selectOption({ index: 1 });
   await page.getByLabel("Facultad").selectOption({ label: "Ingenierías" });
   await page.getByRole("button", { name: "Guardar y continuar" }).click();
+
+  // La foto de perfil es obligatoria: sin ella no se sigue.
+  await expect(page.getByRole("heading", { name: "Sube tu foto de perfil" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
+  await page.getByLabel("Elegir foto de perfil").setInputFiles({ name: "yo.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByRole("button", { name: "Cambiar foto" })).toBeVisible();
+  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page).not.toHaveURL(/primer-ingreso/);
   await expect(page.getByRole("button", { name: "Abrir menú de la cuenta" })).toBeVisible();
 

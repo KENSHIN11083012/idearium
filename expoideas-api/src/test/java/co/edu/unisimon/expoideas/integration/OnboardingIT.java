@@ -37,11 +37,13 @@ class OnboardingIT extends IntegrationTest {
                                 "role",
                                 "JUDGE"))
                 .expect(201);
-        assertThat(created.<List<String>>json("$.pendingSteps")).containsExactly("CHANGE_PASSWORD", "DATA_CONSENT");
+        assertThat(created.<List<String>>json("$.pendingSteps"))
+                .containsExactly("CHANGE_PASSWORD", "DATA_CONSENT", "PROFILE_PHOTO");
 
         Response login = post("/api/v1/auth/login", null, Map.of("email", email, "password", TEMPORAL))
                 .expect(200);
-        assertThat(login.<List<String>>json("$.pendingSteps")).containsExactly("CHANGE_PASSWORD", "DATA_CONSENT");
+        assertThat(login.<List<String>>json("$.pendingSteps"))
+                .containsExactly("CHANGE_PASSWORD", "DATA_CONSENT", "PROFILE_PHOTO");
         String token = login.json("$.token");
 
         // Permitido mientras tanto: ver y completar su perfil y leer catálogos públicos.
@@ -51,8 +53,9 @@ class OnboardingIT extends IntegrationTest {
         get("/api/v1/campuses", token).expect(200);
 
         // Cualquier otra cosa: 403 con los pasos que faltan.
-        Response blocked = delete("/api/v1/users/me/photo", token).expect(403);
-        assertThat(blocked.<List<String>>json("$.pendingSteps")).containsExactly("CHANGE_PASSWORD", "DATA_CONSENT");
+        Response blocked = get("/api/v1/jury/projects", token).expect(403);
+        assertThat(blocked.<List<String>>json("$.pendingSteps"))
+                .containsExactly("CHANGE_PASSWORD", "DATA_CONSENT", "PROFILE_PHOTO");
 
         // Cambiar la contraseña cierra la sesión con la que se entró: se sigue con el token de la respuesta.
         token = put(
@@ -61,14 +64,20 @@ class OnboardingIT extends IntegrationTest {
                         Map.of("currentPassword", TEMPORAL, "newPassword", DEFINITIVA, "confirmPassword", DEFINITIVA))
                 .expect(200)
                 .json("$.token");
-        Response stillBlocked = delete("/api/v1/users/me/photo", token).expect(403);
-        assertThat(stillBlocked.<List<String>>json("$.pendingSteps")).containsExactly("DATA_CONSENT");
+        Response stillBlocked = get("/api/v1/jury/projects", token).expect(403);
+        assertThat(stillBlocked.<List<String>>json("$.pendingSteps")).containsExactly("DATA_CONSENT", "PROFILE_PHOTO");
 
         put("/api/v1/users/me/data-consent", token, Map.of("dataConsent", false))
                 .expect(400);
         put("/api/v1/users/me/data-consent", token, Map.of("dataConsent", true)).expect(204);
 
-        delete("/api/v1/users/me/photo", token).expect(204);
+        // Lo último es la foto, que llevan todos los roles: también un jurado externo.
+        Response withoutPhoto = get("/api/v1/jury/projects", token).expect(403);
+        assertThat(withoutPhoto.<List<String>>json("$.pendingSteps")).containsExactly("PROFILE_PHOTO");
+        assertThat(uploadPhoto(token).expect(200).<List<String>>json("$.pendingSteps"))
+                .isEmpty();
+
+        get("/api/v1/jury/projects", token).expect(200);
         Response again = post("/api/v1/auth/login", null, Map.of("email", email, "password", DEFINITIVA))
                 .expect(200);
         assertThat(again.<List<String>>json("$.pendingSteps")).isEmpty();

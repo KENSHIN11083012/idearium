@@ -16,6 +16,7 @@ import co.edu.unisimon.expoideas.common.ForbiddenActionException;
 import co.edu.unisimon.expoideas.common.InvalidFieldsException;
 import co.edu.unisimon.expoideas.editions.Track;
 import co.edu.unisimon.expoideas.support.SecuredWebMvcTest;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -37,7 +38,9 @@ class ProjectControllerTest {
               "title": "BioSensor",
               "summary": "Sensores para detectar plagas antes de que se vean.",
               "sectorId": 3,
-              "teacherId": 7
+              "teacherId": 7,
+              "semester": 5,
+              "phone": "3001234567"
             }
             """;
 
@@ -208,13 +211,16 @@ class ProjectControllerTest {
         when(teamService.listMine(any()))
                 .thenReturn(List.of(new InvitationResponse(
                         4, 10, "BioSensor", "Expoideas 2026-2", Track.INNPRENDE_I, "Ana Pérez", LocalDateTime.now())));
-        when(teamService.accept(eq(4), any())).thenReturn(response());
+        when(teamService.accept(eq(4), any(), any())).thenReturn(response());
 
         mockMvc.perform(get("/api/v1/invitations"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].projectTitle").value("BioSensor"))
                 .andExpect(jsonPath("$[0].leader").value("Ana Pérez"));
-        mockMvc.perform(post("/api/v1/invitations/4/acceptance")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/invitations/4/acceptance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"semester\":4}"))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/invitations/4/rejection")).andExpect(status().isNoContent());
         mockMvc.perform(delete("/api/v1/projects/10/members/2")).andExpect(status().isNoContent());
     }
@@ -239,10 +245,13 @@ class ProjectControllerTest {
                 "Carlos Mendoza",
                 true,
                 true,
+                LocalDate.of(2026, 11, 15),
+                LocalDate.of(2026, 11, 30),
                 2,
                 5,
                 List.of(new MemberResponse(
-                        1, "Ana Pérez", "ana@unisimon.edu.co", MemberRole.LEADER, MembershipStatus.ACCEPTED)),
+                        1, "Ana Pérez", "ana@unisimon.edu.co", MemberRole.LEADER, MembershipStatus.ACCEPTED, 5)),
+                "3001234567",
                 result,
                 LocalDateTime.now());
     }

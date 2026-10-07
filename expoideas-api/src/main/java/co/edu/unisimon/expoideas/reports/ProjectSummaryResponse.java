@@ -28,6 +28,8 @@ public record ProjectSummaryResponse(
         String prototypeType,
         String teacher,
         String leader,
+        Integer leaderSemester,
+        String leaderPhone,
         int members,
         int minMembers,
         int requiredDeliverables,
@@ -50,6 +52,8 @@ public record ProjectSummaryResponse(
                 project.getPrototypeType() != null ? project.getPrototypeType().getName() : null,
                 project.getTeacher().fullName(),
                 project.leader().getUser().fullName(),
+                project.leader().getSemester(),
+                project.leader().getPhone(),
                 (int) project.getMembers().stream()
                         .filter(member -> member.getStatus() == MembershipStatus.ACCEPTED)
                         .count(),

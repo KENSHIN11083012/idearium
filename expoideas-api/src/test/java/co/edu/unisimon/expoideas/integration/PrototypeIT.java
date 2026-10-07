@@ -125,6 +125,8 @@ class PrototypeIT extends IntegrationTest {
                 "sectorId",
                 ((List<Integer>) get("/api/v1/sectors", null).expect(200).json("$[*].id")).getFirst());
         body.put("teacherId", idOf(teacherEmail));
+        body.put("semester", 5);
+        body.put("phone", "3001234567");
         return body;
     }
 

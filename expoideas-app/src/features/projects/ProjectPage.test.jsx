@@ -7,7 +7,7 @@ import { project } from '@/test/fixtures';
 import ProjectPage from './ProjectPage';
 import { useProjectPresentation } from '@/features/presentations/queries';
 import { useJuryProjects } from '@/features/jury/queries';
-import { useDeleteProject, useInviteMember, useProject, useRemoveMember, useSetResult } from './queries';
+import { useDeleteProject, useInvitationCandidates, useInviteMember, useProject, useRemoveMember, useSetResult } from './queries';
 
 vi.mock('@/features/auth/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('@/features/presentations/queries', () => ({ useProjectPresentation: vi.fn() }));
@@ -20,6 +20,8 @@ vi.mock('@/features/evaluations/MyGrade', () => ({ MyGrade: () => <section>Tu no
 vi.mock('./queries', () => ({
     useProject: vi.fn(),
     useInviteMember: vi.fn(),
+    useInvitationCandidates: vi.fn(),
+    MIN_CANDIDATE_SEARCH: 3,
     useRemoveMember: vi.fn(),
     useDeleteProject: vi.fn(),
     useSaveProject: vi.fn(),
@@ -44,6 +46,13 @@ const camilo = {
 
 const withTeam = { ...project, members: [...project.members, camilo] };
 
+/** El día que cae a esa distancia de hoy, como lo entrega la API ("2026-11-28"). */
+const inDays = (days) => {
+    const day = new Date();
+    day.setDate(day.getDate() + days);
+    return day.toLocaleDateString('en-CA');
+};
+
 let invite;
 let removeMember;
 let deleteProject;
@@ -63,6 +72,7 @@ beforeEach(() => {
     useProjectPresentation.mockReturnValue({ data: null, isPending: false, error: null });
     useJuryProjects.mockReturnValue({ data: [] });
     useInviteMember.mockReturnValue(invite);
+    useInvitationCandidates.mockReturnValue({ data: undefined, isPending: true, error: null });
     useRemoveMember.mockReturnValue(removeMember);
     useDeleteProject.mockReturnValue(deleteProject);
     useSetResult.mockReturnValue(setResult);
@@ -79,12 +89,37 @@ describe('El proyecto y su equipo', () => {
         expect(screen.getByText('2 de 5 integrantes · mínimo 2')).toBeInTheDocument();
     });
 
+    it('de cada integrante dice el semestre, y del líder su celular si la API lo entregó', () => {
+        renderPage({ ...withTeam, members: [project.members[0], { ...camilo, semester: 3 }] });
+
+        expect(screen.getByText('ana@unisimon.edu.co · Semestre 5')).toBeInTheDocument();
+        expect(screen.getByText('camilo@unisimon.edu.co · Semestre 3')).toBeInTheDocument();
+        expect(screen.getByText('Celular del líder')).toBeInTheDocument();
+        expect(screen.getByText('3001234567')).toBeInTheDocument();
+        cleanup();
+
+        // A quien no puede verlo (un compañero, un jurado) la API no se lo manda, y no se pinta el rótulo.
+        renderPage({ ...withTeam, leaderPhone: null }, { userId: 2 });
+        expect(screen.queryByText('Celular del líder')).not.toBeInTheDocument();
+    });
+
     it('una invitación sin responder se ve como enviada', () => {
         renderPage({ ...project, members: [...project.members, { ...camilo, status: 'INVITED' }] });
 
         expect(screen.getByText('Invitación enviada')).toBeInTheDocument();
         // Todavía no cuenta como integrante aceptado.
         expect(screen.getByText('1 de 5 integrantes · mínimo 2')).toBeInTheDocument();
+    });
+
+    it('dice cuánto falta para entregar mientras las entregas sigan abiertas', () => {
+        renderPage({ ...project, submissionClosesOn: inDays(2) });
+
+        expect(screen.getByText('Quedan 2 días para entregar')).toBeInTheDocument();
+        cleanup();
+
+        // Ya cerradas, de eso habla la sección de entregables: aquí no se repite.
+        renderPage({ ...project, submissionOpen: false, submissionClosesOn: inDays(-1) });
+        expect(screen.queryByText(/para entregar|Las entregas cerraron/)).not.toBeInTheDocument();
     });
 
     it('con las inscripciones cerradas no hay acciones', () => {
@@ -103,7 +138,7 @@ describe('El líder gestiona el equipo', () => {
         await userEvent.type(screen.getByLabelText(/Invitar a un compañero/), 'camilo@unisimon.edu.co');
         await userEvent.click(screen.getByRole('button', { name: /Invitar/ }));
 
-        await waitFor(() => expect(invite.mutateAsync).toHaveBeenCalledWith('camilo@unisimon.edu.co'));
+        await waitFor(() => expect(invite.mutateAsync).toHaveBeenCalledWith({ email: 'camilo@unisimon.edu.co' }));
     });
 
     it('rechaza un correo que no es institucional', async () => {
@@ -149,26 +184,48 @@ describe('El líder gestiona el equipo', () => {
         expect(navigate).toHaveBeenCalledWith('/mis-proyectos');
     });
 
-    it('el líder no puede salirse de su propio equipo', () => {
+    it('no tiene cómo quitarse a sí mismo ni ve el aviso de los integrantes', () => {
         renderPage(withTeam);
 
-        expect(screen.queryByRole('button', { name: 'Salir del equipo' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Quitar a Ana María Pérez' })).not.toBeInTheDocument();
+        expect(screen.queryByText(/pídeselo a MacondoLab/)).not.toBeInTheDocument();
     });
 });
 
 describe('Un integrante que no es líder', () => {
-    it('no edita ni invita, pero puede salirse', async () => {
+    it('no edita, no invita y no se sale por su cuenta: le dice a quién pedírselo', () => {
         renderPage(withTeam, { userId: 2 });
 
         expect(screen.queryByRole('button', { name: /Editar/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Invitar/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Quitar a|Salir del equipo/ })).not.toBeInTheDocument();
+        expect(screen.getByText(/Para salir de este equipo o cambiarte a otro, pídeselo a MacondoLab/)).toBeInTheDocument();
+    });
 
-        await userEvent.click(screen.getByRole('button', { name: 'Salir del equipo' }));
+    it('con una invitación sin responder no ve ese aviso: todavía no está en el equipo', () => {
+        renderPage({ ...project, members: [...project.members, { ...camilo, status: 'INVITED' }] }, { userId: 2 });
+
+        expect(screen.queryByText(/pídeselo a MacondoLab/)).not.toBeInTheDocument();
+    });
+});
+
+describe('La gestión', () => {
+    it('retira a un integrante, pero no al líder', async () => {
+        renderPage(withTeam, { role: 'MACONDOLAB', userId: 50 });
+
+        expect(screen.queryByRole('button', { name: 'Quitar a Ana María Pérez' })).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Quitar a Camilo Montes' }));
         const dialog = within(await screen.findByRole('alertdialog'));
         await userEvent.click(dialog.getByRole('button', { name: 'Quitar' }));
 
         await waitFor(() => expect(removeMember.mutateAsync).toHaveBeenCalledWith(2));
-        expect(navigate).toHaveBeenCalledWith('/mis-proyectos');
+        expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('con las inscripciones cerradas ya no mueve el equipo', () => {
+        renderPage({ ...withTeam, registrationOpen: false }, { role: 'MACONDOLAB', userId: 50 });
+
+        expect(screen.queryByRole('button', { name: 'Quitar a Camilo Montes' })).not.toBeInTheDocument();
     });
 });
 

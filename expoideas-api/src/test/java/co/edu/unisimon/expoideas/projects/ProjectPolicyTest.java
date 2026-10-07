@@ -134,7 +134,7 @@ class ProjectPolicyTest {
             assertThat(policy.canView(project, invited)).isTrue();
             assertThat(policy.canSeeDeliverables(project, invited)).isFalse();
 
-            project.memberOf(invited).orElseThrow().accept(TODAY.atStartOfDay());
+            project.memberOf(invited).orElseThrow().accept(TODAY.atStartOfDay(), 4);
             assertThat(policy.canSeeDeliverables(project, invited)).isTrue();
 
             assertThat(policy.canSeeDeliverables(project, ana)).isTrue();
@@ -150,6 +150,65 @@ class ProjectPolicyTest {
 
             when(rule.canView(project, judge)).thenReturn(true);
             assertThat(policy.canView(project, judge)).isTrue();
+        }
+    }
+
+    @Nested
+    class Removal {
+
+        private final User camilo = TestData.user(2, "camilo@unisimon.edu.co", Role.STUDENT);
+        private final Project project = new Project();
+
+        @BeforeEach
+        void project() {
+            project.setEdition(edition);
+            project.addMember(ana, MemberRole.LEADER, MembershipStatus.ACCEPTED, TODAY.atStartOfDay());
+            project.addMember(camilo, MemberRole.MEMBER, MembershipStatus.ACCEPTED, TODAY.atStartOfDay());
+        }
+
+        @Test
+        void theLeaderAndManagementRemoveAMember() {
+            ProjectMember member = project.memberOf(camilo).orElseThrow();
+
+            assertThatCode(() -> policy.requireCanRemove(project, ana, member)).doesNotThrowAnyException();
+            for (Role role : List.of(Role.MACONDOLAB, Role.ADMIN)) {
+                User management = TestData.user(9, "gestion@unisimon.edu.co", role);
+                assertThatCode(() -> policy.requireCanRemove(project, management, member))
+                        .doesNotThrowAnyException();
+            }
+        }
+
+        @Test
+        void aMemberDoesNotLeaveOnTheirOwn() {
+            ProjectMember member = project.memberOf(camilo).orElseThrow();
+
+            assertThatThrownBy(() -> policy.requireCanRemove(project, camilo, member))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessageContaining("pídeselo a MacondoLab");
+        }
+
+        @Test
+        void anotherMemberOrTheTeacherCannotRemoveAnyone() {
+            User luis = TestData.user(4, "luis@unisimon.edu.co", Role.STUDENT);
+            project.addMember(luis, MemberRole.MEMBER, MembershipStatus.ACCEPTED, TODAY.atStartOfDay());
+            ProjectMember member = project.memberOf(camilo).orElseThrow();
+
+            assertThatThrownBy(() -> policy.requireCanRemove(project, luis, member))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessageContaining("Solo el líder");
+            User teacher = TestData.user(7, "carlos@unisimon.edu.co", Role.TEACHER);
+            assertThatThrownBy(() -> policy.requireCanRemove(project, teacher, member))
+                    .isInstanceOf(ForbiddenActionException.class);
+        }
+
+        @Test
+        void whoIsOnlyInvitedWithdrawsTheirOwnInvitation() {
+            User luis = TestData.user(4, "luis@unisimon.edu.co", Role.STUDENT);
+            project.addMember(luis, MemberRole.MEMBER, MembershipStatus.INVITED, TODAY.atStartOfDay());
+
+            assertThatCode(() -> policy.requireCanRemove(
+                            project, luis, project.memberOf(luis).orElseThrow()))
+                    .doesNotThrowAnyException();
         }
     }
 

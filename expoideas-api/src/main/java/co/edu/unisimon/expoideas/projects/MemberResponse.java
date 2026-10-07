@@ -2,10 +2,11 @@ package co.edu.unisimon.expoideas.projects;
 
 /**
  * Una persona del equipo. El correo lo ven quienes ya están en el proyecto (y la
- * gestión), para que el líder sepa a quién invitó.
+ * gestión), para que el líder sepa a quién invitó. El semestre es el que dijo
+ * cursar al entrar; null mientras no responda la invitación.
  */
 public record MemberResponse(
-        Integer userId, String fullName, String email, MemberRole teamRole, MembershipStatus status) {
+        Integer userId, String fullName, String email, MemberRole teamRole, MembershipStatus status, Integer semester) {
 
     public static MemberResponse from(ProjectMember member) {
         return new MemberResponse(
@@ -13,6 +14,7 @@ public record MemberResponse(
                 member.getUser().fullName(),
                 member.getUser().getEmail(),
                 member.getTeamRole(),
-                member.getStatus());
+                member.getStatus(),
+                member.getSemester());
     }
 }

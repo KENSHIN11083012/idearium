@@ -47,7 +47,7 @@ public class ProjectService {
         User user = policy.account(email);
         LocalDate today = policy.today();
         return projectRepository.findAllOfMember(user.getId()).stream()
-                .map(project -> ProjectResponse.from(project, today))
+                .map(project -> ProjectResponse.from(project, today, policy.canSeeContact(project, user)))
                 .toList();
     }
 
@@ -59,7 +59,8 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public ProjectResponse get(Integer id, String email) {
         User viewer = policy.account(email);
-        return ProjectResponse.from(policy.findVisible(id, viewer), policy.today());
+        Project project = policy.findVisible(id, viewer);
+        return ProjectResponse.from(project, policy.today(), policy.canSeeContact(project, viewer));
     }
 
     @Transactional
@@ -82,12 +83,13 @@ public class ProjectService {
         project.setEdition(edition);
         project.setTrack(request.track());
         apply(project, request);
-        project.addMember(leader, MemberRole.LEADER, MembershipStatus.ACCEPTED, policy.now());
+        project.addMember(leader, MemberRole.LEADER, MembershipStatus.ACCEPTED, policy.now())
+                .declare(request.semester(), request.phone());
 
         try {
             // Se escribe ya, para que un rechazo de la base (un doble clic) salga aquí
-            // y no al cerrar la transacción.
-            return ProjectResponse.from(projectRepository.saveAndFlush(project), policy.today());
+            // y no al cerrar la transacción. Quien inscribe es el líder: ve su propio celular.
+            return ProjectResponse.from(projectRepository.saveAndFlush(project), policy.today(), true);
         } catch (DataIntegrityViolationException failure) {
             throw policy.onTeamSave(failure);
         }
@@ -121,18 +123,20 @@ public class ProjectService {
             approvalRepository.deleteAll(approvalRepository.findByProjectId(project.getId()));
         }
         log.info("Proyecto {}: resultado {} por el usuario ID {}", id, request.result(), actor.getId());
-        return ProjectResponse.from(projectRepository.save(project), policy.today());
+        return ProjectResponse.from(
+                projectRepository.save(project), policy.today(), policy.canSeeContact(project, actor));
     }
 
     @Transactional
     public ProjectResponse update(Integer id, String email, ProjectRequest request) {
         User actor = policy.account(email);
         Project project = policy.findVisible(id, actor);
-        policy.requireLeader(project, actor);
+        ProjectMember leader = policy.requireLeader(project, actor);
         policy.requireRegistrationOpen(project.getEdition());
 
         apply(project, request);
-        return ProjectResponse.from(projectRepository.save(project), policy.today());
+        leader.declare(request.semester(), request.phone());
+        return ProjectResponse.from(projectRepository.save(project), policy.today(), true);
     }
 
     /**

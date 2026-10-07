@@ -8,7 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Catálogos: lectura pública; los institucionales (sedes, facultades, programas)
+ * Catálogos: lectura pública; los institucionales (campus, facultades, programas)
  * los escribe el administrador y los de clasificación (sectores, keywords) también MacondoLab.
  */
 class CatalogIT extends IntegrationTest {

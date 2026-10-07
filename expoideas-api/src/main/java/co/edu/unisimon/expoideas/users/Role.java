@@ -19,7 +19,7 @@ public enum Role {
     /** Estudiante: el rol con el que nace toda cuenta registrada. */
     STUDENT;
 
-    /** Si el rol pertenece a la comunidad académica y debe declarar sede y facultad. */
+    /** Si el rol pertenece a la comunidad académica y debe declarar campus y facultad. */
     public boolean requiresAffiliation() {
         return this == TEACHER || this == STUDENT;
     }

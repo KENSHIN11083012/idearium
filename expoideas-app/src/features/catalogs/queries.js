@@ -19,7 +19,7 @@ export const useSaveCatalogItem = (path) => {
     });
 };
 
-/** Sedes, facultades y programas ordenados por nombre, para la adscripción académica. */
+/** Campus, facultades y programas ordenados por nombre, para la adscripción académica. */
 export const useAffiliationCatalogs = () =>
     useQueries({
         queries: [CATALOG_PATHS.campuses, CATALOG_PATHS.faculties, CATALOG_PATHS.academicPrograms].map(listQuery),

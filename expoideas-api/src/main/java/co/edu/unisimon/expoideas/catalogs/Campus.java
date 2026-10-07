@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Sede de la universidad (Barranquilla, Cúcuta). */
+/** Campus de la universidad (Barranquilla, Cúcuta). */
 @Getter
 @Setter
 @NoArgsConstructor

@@ -41,7 +41,7 @@ export function IdentityCard({ profile }) {
                 <Detail icon={Mail} label="Correo institucional" value={profile.email} />
                 {requiresAffiliation(profile.role) && (
                     <>
-                        <Detail icon={Landmark} label="Sede" value={profile.campus} />
+                        <Detail icon={Landmark} label="Campus" value={profile.campus} />
                         <Detail icon={Building2} label="Facultad" value={profile.faculty} />
                         <Detail
                             icon={GraduationCap}

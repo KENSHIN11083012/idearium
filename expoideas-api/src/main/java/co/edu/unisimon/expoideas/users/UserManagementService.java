@@ -1,5 +1,6 @@
 package co.edu.unisimon.expoideas.users;
 
+import co.edu.unisimon.expoideas.common.AccountAnonymizedEvent;
 import co.edu.unisimon.expoideas.common.AuditableAction;
 import co.edu.unisimon.expoideas.common.AuditableAction.Action;
 import co.edu.unisimon.expoideas.common.ConflictException;
@@ -8,12 +9,17 @@ import co.edu.unisimon.expoideas.common.InvalidFieldsException;
 import co.edu.unisimon.expoideas.common.PageResponse;
 import co.edu.unisimon.expoideas.common.ValidationPatterns;
 import co.edu.unisimon.expoideas.files.FileService;
+import co.edu.unisimon.expoideas.files.StoredFile;
 import co.edu.unisimon.expoideas.notifications.AccountCreatedEvent;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Gestión de cuentas por MacondoLab y administradores: listar, crear, cambiar
- * rol o adscripción, restablecer contraseñas y eliminar. SecurityConfig decide
+ * rol o adscripción, restablecer contraseñas, suspender, anonimizar y eliminar. SecurityConfig decide
  * quién entra a estas rutas; aquí se decide a quién se puede gestionar (con
  * {@link Role#canManage}), con la cuenta de la sesión como actor.
  */
@@ -33,10 +39,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserManagementService {
 
     private final UserRepository userRepository;
+    private final RosterRepository rosterRepository;
+    private final AccountTokenRepository tokenRepository;
     private final AffiliationResolver affiliation;
     private final PasswordUpdater passwords;
     private final FileService fileService;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     /** Motivos para no eliminar una cuenta que aportan otros módulos. Puede estar vacía. */
     private final List<AccountDeletionRule> deletionRules;
@@ -65,7 +74,7 @@ public class UserManagementService {
      * @throws ForbiddenActionException si el actor no puede gestionar el rol pedido
      * @throws InvalidFieldsException   si el correo no es institucional (salvo jurados) o falta la adscripción
      * @throws ConflictException        si el correo ya está en uso
-     * @throws NoSuchElementException   si la sede, la facultad o el programa no existen
+     * @throws NoSuchElementException   si el campus, la facultad o el programa no existen
      */
     @Transactional
     public UserResponse create(String actorEmail, UserCreateRequest request) {
@@ -119,13 +128,14 @@ public class UserManagementService {
      * @throws ForbiddenActionException si el actor no puede gestionar la cuenta o el rol pedido, o cambia su propio rol
      * @throws IllegalArgumentException si llega adscripción para un rol que no la lleva
      * @throws InvalidFieldsException   si el programa es de otra facultad
-     * @throws NoSuchElementException   si la cuenta, la sede, la facultad o el programa no existen
+     * @throws NoSuchElementException   si la cuenta, el campus, la facultad o el programa no existen
      */
     @Transactional
     public UserResponse update(String actorEmail, Integer id, UserUpdateRequest request) {
         User actor = findByEmail(actorEmail);
         User user = findById(id);
         requireCanManage(actor, user);
+        requireStillSomeones(user);
         Role previous = user.getRole();
         Role pending = user.getPendingRole();
         if (request.role() != null && request.role() != previous) {
@@ -183,6 +193,7 @@ public class UserManagementService {
                     "Para cambiar tu propia contraseña usa la opción Seguridad de tu cuenta.");
         }
         requireCanManage(actor, user);
+        requireStillSomeones(user);
         passwords.replace(user, request.newPassword(), request.confirmPassword(), true);
         audit(Action.PASSWORD_RESET, user, null);
         log.info("Contraseña del usuario ID {} restablecida desde la gestión", id);
@@ -204,6 +215,7 @@ public class UserManagementService {
             throw new ForbiddenActionException("No puedes suspender tu propia cuenta.");
         }
         requireCanManage(actor, user);
+        requireStillSomeones(user);
         user.suspend();
         audit(Action.ACCOUNT_SUSPENDED, user, null);
         log.info("Usuario ID {} suspendido por el usuario ID {}", id, actor.getId());
@@ -222,9 +234,55 @@ public class UserManagementService {
         User actor = findByEmail(actorEmail);
         User user = findById(id);
         requireCanManage(actor, user);
+        requireStillSomeones(user);
         user.reactivate();
         audit(Action.ACCOUNT_REACTIVATED, user, null);
         log.info("Usuario ID {} reactivado por el usuario ID {}", id, actor.getId());
+        return UserResponse.from(user);
+    }
+
+    /**
+     * Anonimiza la cuenta: le quita el nombre, el correo, la foto, los enlaces
+     * pendientes y el acceso, y la saca del listado de la cátedra. Es lo que se
+     * hace cuando alguien pide que se supriman sus datos y la cuenta tiene
+     * historia (un equipo, un proyecto a cargo, una evaluación) que impide
+     * eliminarla: el historial sigue, a nombre de «Cuenta anonimizada». Los
+     * archivos que subió como entregables son del equipo y se quedan.
+     *
+     * <p>Solo administradores (lo exige SecurityConfig). No tiene vuelta atrás.
+     *
+     * @throws ForbiddenActionException si es la propia cuenta
+     * @throws ConflictException        si ya estaba anonimizada
+     * @throws NoSuchElementException   si el id no existe
+     */
+    @Transactional
+    public UserResponse anonymize(String actorEmail, Integer id) {
+        User actor = findByEmail(actorEmail);
+        User user = findById(id);
+        if (actor.getId().equals(user.getId())) {
+            throw new ForbiddenActionException("No puedes anonimizar tu propia cuenta.");
+        }
+        requireStillSomeones(user);
+
+        String formerEmail = user.getEmail();
+        String formerName = user.nameForGreeting();
+        String roleLabel = user.getRole().label();
+        StoredFile photo = user.getPhoto();
+
+        user.setPhoto(null);
+        // Una contraseña que nadie conoce: aunque la cuenta se reactivara, no habría con qué entrar.
+        user.anonymize(passwords.hash(UUID.randomUUID().toString()), LocalDateTime.now(clock));
+        if (photo != null) {
+            fileService.delete(photo);
+        }
+        tokenRepository.deleteByUserId(user.getId());
+        rosterRepository.deleteByEmail(formerEmail.toLowerCase(Locale.ROOT));
+
+        // El rastro guarda copias del correo y del nombre: se quitan en esta misma transacción.
+        events.publishEvent(new AccountAnonymizedEvent(user.getId(), formerEmail, formerName, user.getEmail()));
+        // En el rastro queda que se anonimizó, sin volver a escribir de quién era.
+        audit(Action.ACCOUNT_ANONYMIZED, user, roleLabel);
+        log.info("Usuario ID {} anonimizado por el usuario ID {}", id, actor.getId());
         return UserResponse.from(user);
     }
 
@@ -265,6 +323,13 @@ public class UserManagementService {
     /** Deja en el rastro una acción sobre esa cuenta; quien la hizo es la cuenta de la sesión. */
     private void audit(Action action, User target, String detail) {
         events.publishEvent(new AuditableAction(action, target.getId(), target.getEmail(), detail));
+    }
+
+    /** Una cuenta anonimizada ya no es de nadie: no se le cambia nada ni se le devuelve el acceso. */
+    private static void requireStillSomeones(User user) {
+        if (user.isAnonymized()) {
+            throw new ConflictException("Esta cuenta fue anonimizada: ya no se puede modificar.");
+        }
     }
 
     private static void requireCanManage(User actor, User target) {

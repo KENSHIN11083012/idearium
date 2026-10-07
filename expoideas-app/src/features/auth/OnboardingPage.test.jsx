@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { useAffiliationCatalogs } from '@/features/catalogs/queries';
-import { useProfile, useUpdateProfile } from '@/features/profile/queries';
+import { useProfile, useUpdateProfile, useUploadPhoto } from '@/features/profile/queries';
 import { apiError } from '@/test/utils';
 import OnboardingPage from './OnboardingPage';
 import { accountApi } from './api';
@@ -15,7 +15,7 @@ vi.mock('./useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('./api', () => ({
     accountApi: { changePassword: vi.fn(), giveDataConsent: vi.fn(), resendVerification: vi.fn() },
 }));
-vi.mock('@/features/profile/queries', () => ({ useUpdateProfile: vi.fn(), useProfile: vi.fn() }));
+vi.mock('@/features/profile/queries', () => ({ useUpdateProfile: vi.fn(), useProfile: vi.fn(), useUploadPhoto: vi.fn() }));
 vi.mock('@/features/catalogs/queries', () => ({ useAffiliationCatalogs: vi.fn() }));
 
 const TestSession = createContext(null);
@@ -24,12 +24,14 @@ const renewToken = vi.fn();
 /** Sesión con estado real: completar un paso lo quita de la lista, como AuthProvider. */
 function Session({ initialPendingSteps, role, user = { fullName: 'Marta Ríos' }, children }) {
     const [pendingSteps, setPendingSteps] = useState(initialPendingSteps);
+    const [account, setAccount] = useState(user);
     const value = {
         token: 'token',
         role,
-        user,
+        user: account,
         pendingSteps,
         completeStep: (step) => setPendingSteps((steps) => steps.filter((s) => s !== step)),
+        updateUser: (changes) => setAccount((current) => ({ ...current, ...changes })),
         logout: vi.fn(),
         renewToken,
     };
@@ -60,6 +62,7 @@ async function changePassword(user, { current = 'Temporal#2026', next = 'Propia#
 }
 
 const updateProfile = { mutateAsync: vi.fn() };
+const uploadPhoto = vi.fn();
 const profile = { refetch: vi.fn() };
 
 beforeEach(() => {
@@ -68,6 +71,19 @@ beforeEach(() => {
     useUpdateProfile.mockReturnValue(updateProfile);
     profile.refetch.mockReset();
     useProfile.mockReturnValue(profile);
+    uploadPhoto.mockReset();
+    // Como la consulta de verdad: al subir, la foto queda en la sesión.
+    useUploadPhoto.mockImplementation(() => {
+        const { updateUser } = useContext(TestSession);
+        return {
+            isPending: false,
+            mutate: (file, options) => {
+                uploadPhoto(file);
+                updateUser({ photoId: 'foto-1' });
+                options?.onSuccess?.();
+            },
+        };
+    });
     useAffiliationCatalogs.mockReturnValue({
         campuses: [{ id: 1, name: 'Barranquilla' }],
         faculties: [{ id: 2, name: 'Ingeniería' }],
@@ -209,7 +225,7 @@ describe('Primer ingreso', () => {
 
 /** El registro solo pidió correo y contraseña: el nombre y la adscripción se completan aquí. */
 describe('Paso «Completa tu perfil»', () => {
-    it('un estudiante recién registrado indica nombre, sede, facultad y programa, y llega al inicio', async () => {
+    it('un estudiante recién registrado indica nombre, campus, facultad y programa, y llega al inicio', async () => {
         const user = userEvent.setup();
         updateProfile.mutateAsync.mockResolvedValue({ firstName: 'Ana María', lastName: 'Pérez', pendingSteps: [] });
         renderOnboarding(['COMPLETE_PROFILE'], 'STUDENT');
@@ -219,7 +235,7 @@ describe('Paso «Completa tu perfil»', () => {
 
         await user.type(screen.getByLabelText(/^Nombres/), 'Ana María');
         await user.type(screen.getByLabelText(/^Apellidos/), 'Pérez');
-        await user.selectOptions(screen.getByLabelText(/^Sede/), '1');
+        await user.selectOptions(screen.getByLabelText(/^Campus/), '1');
         await user.selectOptions(screen.getByLabelText(/^Facultad/), '2');
         await user.selectOptions(screen.getByLabelText(/^Programa académico/), '5');
         await user.click(screen.getByRole('button', { name: /Guardar y continuar/ }));
@@ -248,7 +264,7 @@ describe('Paso «Completa tu perfil»', () => {
 
         await user.clear(screen.getByLabelText(/^Nombres/));
         await user.type(screen.getByLabelText(/^Nombres/), 'Carlos Andrés');
-        await user.selectOptions(screen.getByLabelText(/^Sede/), '1');
+        await user.selectOptions(screen.getByLabelText(/^Campus/), '1');
         await user.selectOptions(screen.getByLabelText(/^Facultad/), '2');
         await user.click(screen.getByRole('button', { name: /Guardar y continuar/ }));
 
@@ -257,7 +273,7 @@ describe('Paso «Completa tu perfil»', () => {
         );
     });
 
-    it('a un estudiante le exige sede y facultad antes de enviar', async () => {
+    it('a un estudiante le exige campus y facultad antes de enviar', async () => {
         const user = userEvent.setup();
         renderOnboarding(['COMPLETE_PROFILE'], 'STUDENT');
 
@@ -265,10 +281,10 @@ describe('Paso «Completa tu perfil»', () => {
         await user.type(screen.getByLabelText(/^Apellidos/), 'Pérez');
         await user.click(screen.getByRole('button', { name: /Guardar y continuar/ }));
 
-        // Por rol: "Selecciona la sede" también es el texto de una opción del select.
+        // Por rol: "Selecciona el campus" también es el texto de una opción del select.
         await screen.findAllByRole('alert');
         const errors = screen.getAllByRole('alert').map((error) => error.textContent);
-        expect(errors).toEqual(expect.arrayContaining(['Selecciona la sede', 'Selecciona la facultad']));
+        expect(errors).toEqual(expect.arrayContaining(['Selecciona el campus', 'Selecciona la facultad']));
         expect(updateProfile.mutateAsync).not.toHaveBeenCalled();
     });
 
@@ -277,7 +293,7 @@ describe('Paso «Completa tu perfil»', () => {
         updateProfile.mutateAsync.mockResolvedValue({ firstName: 'Marta', lastName: 'Ríos', pendingSteps: [] });
         renderOnboarding(['COMPLETE_PROFILE'], 'JUDGE');
 
-        expect(screen.queryByLabelText(/^Sede/)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/^Campus/)).not.toBeInTheDocument();
         await user.type(screen.getByLabelText(/^Nombres/), 'Marta');
         await user.type(screen.getByLabelText(/^Apellidos/), 'Ríos');
         await user.click(screen.getByRole('button', { name: /Guardar y continuar/ }));
@@ -297,7 +313,7 @@ describe('Paso «Completa tu perfil»', () => {
 
         await user.type(screen.getByLabelText(/^Nombres/), 'Ana');
         await user.type(screen.getByLabelText(/^Apellidos/), 'Pérez');
-        await user.selectOptions(screen.getByLabelText(/^Sede/), '1');
+        await user.selectOptions(screen.getByLabelText(/^Campus/), '1');
         await user.selectOptions(screen.getByLabelText(/^Facultad/), '2');
         await user.click(screen.getByRole('button', { name: /Guardar y continuar/ }));
 
@@ -310,5 +326,31 @@ describe('Paso «Completa tu perfil»', () => {
 
         expect(screen.getByText('Primer ingreso · Paso 1 de 3')).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Crea tu contraseña' })).toBeInTheDocument();
+    });
+});
+
+describe('Paso «Sube tu foto de perfil»', () => {
+    it('sin foto no deja continuar; al subirla, sigue y llega al inicio', async () => {
+        const user = userEvent.setup();
+        renderOnboarding(['PROFILE_PHOTO']);
+        const photo = new File([new Uint8Array(8)], 'yo.png', { type: 'image/png' });
+
+        expect(screen.getByRole('heading', { name: 'Sube tu foto de perfil' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Continuar/ })).toBeDisabled();
+
+        await user.upload(screen.getByLabelText('Elegir foto de perfil'), photo);
+        expect(uploadPhoto).toHaveBeenCalledWith(photo);
+        // Ya con foto, la puede cambiar antes de seguir.
+        expect(screen.getByRole('button', { name: /Cambiar foto/ })).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+        expect(await screen.findByText('Inicio')).toBeInTheDocument();
+    });
+
+    it('la piden todos los roles y es el último paso', () => {
+        renderOnboarding(['COMPLETE_PROFILE', 'PROFILE_PHOTO'], 'STUDENT');
+
+        expect(screen.getByText('Primer ingreso · Paso 1 de 2')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Completa tu perfil' })).toBeInTheDocument();
     });
 });

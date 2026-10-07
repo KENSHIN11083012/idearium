@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Download, FolderOpen, SearchX } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,6 +29,12 @@ import { RESULTS, RESULT_LABELS, resultLabel } from './schemas';
 const PAGE_SIZE = 25;
 
 const NO_FILTERS = { editionId: '', track: '', teacherId: '', sectorId: '', result: '', search: '' };
+
+/** Órdenes del listado. Espejo de ProjectSort en la API; sin valor, la API usa el primero. */
+const SORTS = [
+    { value: '', label: 'Más recientes primero' },
+    { value: 'TITLE', label: 'Título (A–Z)' },
+];
 
 /** El resultado, si ya lo pusieron; si no, un guion para no llenar la tabla de texto. */
 function ResultBadge({ project }) {
@@ -190,9 +196,12 @@ function ProjectCard({ project }) {
 export default function ProjectsPage() {
     const { role, isManagement } = useAuth();
     const [filters, setFilters] = useState(NO_FILTERS);
+    // El orden viaja con los filtros (a la lista y al CSV), pero no es uno: «Quitar filtros» lo deja.
+    const [sort, setSort] = useState('');
     const [page, setPage] = useState(0);
+    const query = useMemo(() => ({ ...filters, sort }), [filters, sort]);
     // La página se aplaza junto con los filtros: si no, se pediría la primera página del filtro anterior.
-    const deferred = useDeferredValue(filters);
+    const deferred = useDeferredValue(query);
     const deferredPage = useDeferredValue(page);
     const {
         data: { items: projects, totalItems, totalPages } = EMPTY_PAGE,
@@ -219,12 +228,16 @@ export default function ProjectsPage() {
         setFilters(NO_FILTERS);
         setPage(0);
     };
+    const changeSort = (event) => {
+        setSort(event.target.value);
+        setPage(0);
+    };
     const filtered = Object.values(filters).some(Boolean);
 
     const download = async () => {
         setDownloading(true);
         try {
-            await downloadProjectsCsv(filters);
+            await downloadProjectsCsv(query);
         } catch (downloadError) {
             toast.error(downloadError.message);
         } finally {
@@ -293,6 +306,15 @@ export default function ProjectsPage() {
                         {Object.values(RESULTS).map((result) => (
                             <option key={result} value={result}>
                                 {RESULT_LABELS[result]}
+                            </option>
+                        ))}
+                    </NativeSelect>
+                </Field>
+                <Field label="Ordenar por">
+                    <NativeSelect value={sort} onChange={changeSort}>
+                        {SORTS.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                                {label}
                             </option>
                         ))}
                     </NativeSelect>

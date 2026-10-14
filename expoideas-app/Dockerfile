@@ -4,7 +4,7 @@
 # comparten origen y no hace falta CORS.
 
 # La misma versión de Node que .nvmrc y la integración continua: lo que se prueba es lo que se publica.
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /src
 
 COPY package.json package-lock.json ./

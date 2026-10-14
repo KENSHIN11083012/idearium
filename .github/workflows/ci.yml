@@ -51,7 +51,7 @@ jobs:
             "$informe" >> "$GITHUB_STEP_SUMMARY"
       - name: Guardar el informe de cobertura
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cobertura-api
           path: expoideas-api/target/site/jacoco/
@@ -67,7 +67,7 @@ jobs:
         working-directory: expoideas-app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: npm
@@ -145,7 +145,7 @@ jobs:
       # --wait espera a que los tres servicios pasen su comprobación de salud.
       - name: Levantar la plataforma
         run: docker compose up -d --build --wait --wait-timeout 300
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: npm
@@ -168,7 +168,7 @@ jobs:
       # Capturas y trazas de lo que falló. Las cuentas son de esta corrida y ya no existen.
       - name: Guardar el informe de Playwright
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: informe-playwright
           path: |

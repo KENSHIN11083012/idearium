@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
+		<version>4.1.2</version>
 		<relativePath/>
 	</parent>
 	<groupId>co.edu.unisimon</groupId>
@@ -16,12 +16,12 @@
 	<properties>
 		<java.version>25</java.version>
 		<jjwt.version>0.13.0</jjwt.version>
-		<spotless.version>3.10.3</spotless.version>
+		<spotless.version>3.10.4</spotless.version>
 		<palantir-java-format.version>2.98.0</palantir-java-format.version>
 		<!-- Las pruebas corren en UTC, como el contenedor del servidor: una fecha que salga
 		     de la zona de la máquina y no del Clock de TimeConfig se nota en cualquier equipo. -->
 		<argLine>-Duser.timezone=UTC</argLine>
-		<jacoco.version>0.8.15</jacoco.version>
+		<jacoco.version>0.8.16</jacoco.version>
 		<!-- Parches de seguridad que Spring Boot 4.1.1 todavía no trae (los encontró el
 		     escaneo de la imagen): Tomcat 11.0.24 y Jackson 3.1.5 / 2.21.5 tienen
 		     vulnerabilidades conocidas con arreglo publicado. Son versiones de parche de
@@ -103,7 +103,7 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<!-- La línea 3.0.x es la que soporta Spring Boot 4.0; la 2.x es para Boot 3 -->
-			<version>3.1.1</version>
+			<version>3.2.0</version>
 		</dependency>
 		<!-- En Boot 4 @WebMvcTest y la integración de Spring Security con MockMvc
 		     viven en módulos propios; los dos ya traen spring-boot-starter-test.
@@ -135,7 +135,7 @@
 		<dependency>
 			<groupId>com.icegreen</groupId>
 			<artifactId>greenmail-junit5</artifactId>
-			<version>2.1.14</version>
+			<version>2.1.15</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
